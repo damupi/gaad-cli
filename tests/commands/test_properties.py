@@ -145,6 +145,34 @@ class TestPropertiesList:
         result = runner.invoke(app, ["properties", "list"])
         assert result.exit_code != 0
 
+    def test_list_both_flags_exits_nonzero(self, tmp_config_dir: Path) -> None:
+        result = runner.invoke(
+            app, ["properties", "list", "--account-id", "123", "--property-id", "456"]
+        )
+        assert result.exit_code != 0
+
+    def test_list_with_property_id_builds_parent_properties_filter(
+        self, tmp_config_dir: Path, sample_properties: list[MagicMock]
+    ) -> None:
+        from gaad import config as cfg
+
+        cfg.set("auth_method", "token")
+        cfg.set("access_token", "tok")
+
+        with patch("gaad.commands.properties.get_credentials") as mock_creds:
+            with patch("gaad.commands.properties.build_admin_client") as mock_build:
+                mock_client = MagicMock()
+                mock_client.list_properties.return_value = sample_properties
+                mock_build.return_value = mock_client
+                mock_creds.return_value = MagicMock()
+
+                result = runner.invoke(app, ["properties", "list", "--property-id", "789"])
+
+        assert result.exit_code == 0, result.output
+        call_args = mock_client.list_properties.call_args
+        request_arg = call_args[0][0] if call_args[0] else call_args[1].get("request")
+        assert "parent:properties/789" in str(request_arg.filter)
+
     def test_list_with_no_auth_shows_error_and_exits_nonzero(
         self, tmp_config_dir: Path
     ) -> None:

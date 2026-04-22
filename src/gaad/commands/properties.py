@@ -202,9 +202,13 @@ def _render_retention(settings, property_id: str, output: OutputFormat) -> None:
 @properties_app.command("list")
 def list_properties(
     account_id: Annotated[
-        str,
-        typer.Option("--account-id", help="GA4 account ID to list properties for"),
-    ],
+        Optional[str],
+        typer.Option("--account-id", help="GA4 account ID — lists standard properties (parent:accounts/{id})"),
+    ] = None,
+    property_id: Annotated[
+        Optional[str],
+        typer.Option("--property-id", help="GA4 property ID — lists subproperties of a rollup (parent:properties/{id})"),
+    ] = None,
     show_deleted: Annotated[
         bool,
         typer.Option("--show-deleted", help="Include soft-deleted properties"),
@@ -214,9 +218,23 @@ def list_properties(
         typer.Option("--output", "-o", help="Output format"),
     ] = OutputFormat.table,
 ) -> None:
-    """List GA4 properties for a given account."""
+    """List GA4 properties.
+
+    Use --account-id to list properties under an account.
+    Use --property-id to list subproperties of a rollup/parent property.
+    Exactly one of --account-id or --property-id is required.
+    """
+    if account_id and property_id:
+        err_console.print("[red]Error:[/red] Provide either --account-id or --property-id, not both.")
+        raise typer.Exit(code=1)
+    if not account_id and not property_id:
+        err_console.print("[red]Error:[/red] One of --account-id or --property-id is required.")
+        raise typer.Exit(code=1)
+
+    filter_str = (
+        f"parent:accounts/{account_id}" if account_id else f"parent:properties/{property_id}"
+    )
     client = _get_client()
-    filter_str = f"parent:accounts/{account_id}"
     request = ListPropertiesRequest(filter=filter_str, show_deleted=show_deleted)
     props = list(client.list_properties(request))
 
@@ -241,7 +259,8 @@ def list_properties(
         return
 
     # Default: rich table
-    table = Table(title=f"Properties for account {account_id}", show_header=True)
+    title = f"Properties for account {account_id}" if account_id else f"Subproperties of property {property_id}"
+    table = Table(title=title, show_header=True)
     table.add_column("Property ID", style="cyan")
     table.add_column("Display Name", style="white")
     for row in rows:
