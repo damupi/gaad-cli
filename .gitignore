@@ -1,13 +1,68 @@
+# Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
 *.egg-info/
+*.egg
 dist/
 build/
+.eggs/
+wheels/
+
+# Virtual environments
 .venv/
-.coverage
-htmlcov/
+venv/
+env/
+ENV/
+
+# Environment variables
 .env
+.env.*
+!.env.example
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+.ruff_cache/
+.pytype/
+
+# Package managers
+uv.lock
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Credentials & secrets (never commit these)
 **/credentials*.json
 **/service_account*.json
 **/client_secret*.json
-uv.lock
+token.json
+
+# IDEs & editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Logs
+*.log
+
