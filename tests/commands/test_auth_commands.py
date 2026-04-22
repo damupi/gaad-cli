@@ -18,17 +18,36 @@ runner = CliRunner()
 class TestAuthLogin:
     """gaad auth login commands."""
 
-    def test_login_service_account_stores_key_file(self, tmp_config_dir: Path) -> None:
+    def test_login_service_account_copies_key_to_config_dir(
+        self, tmp_config_dir: Path, tmp_path: Path
+    ) -> None:
+        # Create a real source key file
+        source_key = tmp_path / "my_sa_key.json"
+        source_key.write_text('{"type": "service_account"}')
+
         result = runner.invoke(
             app,
-            ["auth", "login", "--method", "service-account", "--key-file", "/fake/key.json"],
+            ["auth", "login", "--method", "service-account", "--key-file", str(source_key)],
         )
         assert result.exit_code == 0, result.output
 
         from gaad import config as cfg
 
         assert cfg.get("auth_method") == "service-account"
-        assert cfg.get("key_file") == "/fake/key.json"
+        # Stored path points inside the config dir, not the original location
+        stored_path = cfg.get("key_file")
+        assert str(tmp_config_dir) in stored_path
+        # File was actually copied
+        assert Path(stored_path).exists()
+
+    def test_login_service_account_original_file_not_found_exits_nonzero(
+        self, tmp_config_dir: Path
+    ) -> None:
+        result = runner.invoke(
+            app,
+            ["auth", "login", "--method", "service-account", "--key-file", "/nonexistent/key.json"],
+        )
+        assert result.exit_code != 0
 
     def test_login_token_stores_token(self, tmp_config_dir: Path) -> None:
         result = runner.invoke(
@@ -42,7 +61,12 @@ class TestAuthLogin:
         assert cfg.get("auth_method") == "token"
         assert cfg.get("access_token") == "mytoken123"
 
-    def test_login_oauth2_runs_flow(self, tmp_config_dir: Path) -> None:
+    def test_login_oauth2_copies_client_secret_to_config_dir(
+        self, tmp_config_dir: Path, tmp_path: Path
+    ) -> None:
+        source_secret = tmp_path / "my_client_secret.json"
+        source_secret.write_text('{"installed": {"client_id": "cid"}}')
+
         mock_flow = MagicMock()
         mock_creds = MagicMock()
         mock_creds.token = "oauth-token"
@@ -60,14 +84,7 @@ class TestAuthLogin:
         ):
             result = runner.invoke(
                 app,
-                [
-                    "auth",
-                    "login",
-                    "--method",
-                    "oauth2",
-                    "--client-secrets",
-                    "/fake/client_secret.json",
-                ],
+                ["auth", "login", "--method", "oauth2", "--client-secrets", str(source_secret)],
             )
         assert result.exit_code == 0, result.output
 
@@ -75,6 +92,10 @@ class TestAuthLogin:
 
         assert cfg.get("auth_method") == "oauth2"
         assert cfg.get("oauth2_credentials") is not None
+        # Client secret file was copied into the config dir
+        stored_path = cfg.get("oauth2_client_secret_file")
+        assert str(tmp_config_dir) in stored_path
+        assert Path(stored_path).exists()
 
 
 class TestAuthLoginEdgeCases:
@@ -151,7 +172,7 @@ class TestAuthStatus:
         from gaad import config as cfg
 
         cfg.set("auth_method", "service-account")
-        cfg.set("key_file", "/path/to/key.json")
+        cfg.set("key_file", str(tmp_config_dir / "service_account.json"))
 
         with patch("gaad.commands.auth.get_credentials") as mock_get_creds:
             with patch("gaad.commands.auth.build_admin_client") as mock_build:
@@ -163,7 +184,7 @@ class TestAuthStatus:
 
         assert result.exit_code == 0
         assert "service-account" in result.output
-        assert "/path/to/key.json" in result.output
+        assert "service_account.json" in result.output
 
     def test_status_shows_connected_on_successful_api_call(self, tmp_config_dir: Path) -> None:
         from gaad import config as cfg

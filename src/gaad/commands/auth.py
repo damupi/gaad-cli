@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import shutil
 from enum import Enum
+from pathlib import Path
 from typing import Annotated, Optional
 
 import typer
 from rich.console import Console
-from rich.table import Table
 
 from gaad import config as cfg
 from gaad.auth import (
@@ -62,9 +63,18 @@ def login(
         if not key_file:
             err_console.print("[red]Error:[/red] --key-file is required for service-account method.")
             raise typer.Exit(code=1)
+        source = Path(key_file)
+        if not source.exists():
+            err_console.print(f"[red]Error:[/red] File not found: {key_file}")
+            raise typer.Exit(code=1)
+        config_dir = cfg.get_config_path().parent
+        config_dir.mkdir(parents=True, exist_ok=True)
+        dest = config_dir / "service_account.json"
+        if not source.samefile(dest) if dest.exists() else True:
+            shutil.copy2(source, dest)
         cfg.set("auth_method", "service-account")
-        cfg.set("key_file", key_file)
-        console.print(f"[green]Stored service account credentials:[/green] {key_file}")
+        cfg.set("key_file", str(dest))
+        console.print(f"[green]Service account key stored:[/green] {dest}")
 
     elif method == AuthMethod.token:
         if not token:
@@ -80,13 +90,22 @@ def login(
         if InstalledAppFlow is None:  # pragma: no cover
             err_console.print("[red]Error:[/red] google-auth-oauthlib is not installed.")
             raise typer.Exit(code=1)
-        flow = InstalledAppFlow.from_client_secrets_file(client_secrets, GA4_SCOPES)
+        source = Path(client_secrets)
+        if not source.exists():
+            err_console.print(f"[red]Error:[/red] File not found: {client_secrets}")
+            raise typer.Exit(code=1)
+        config_dir = cfg.get_config_path().parent
+        config_dir.mkdir(parents=True, exist_ok=True)
+        dest_secret = config_dir / "client_secret.json"
+        if not source.samefile(dest_secret) if dest_secret.exists() else True:
+            shutil.copy2(source, dest_secret)
+        flow = InstalledAppFlow.from_client_secrets_file(str(dest_secret), GA4_SCOPES)
         creds = flow.run_local_server(port=0)
         serialized = serialize_oauth2_credentials(creds)
         cfg.set("auth_method", "oauth2")
         cfg.set("oauth2_credentials", serialized)
-        cfg.set("oauth2_client_secret_file", client_secrets)
-        console.print("[green]OAuth2 credentials stored.[/green]")
+        cfg.set("oauth2_client_secret_file", str(dest_secret))
+        console.print(f"[green]OAuth2 credentials stored.[/green] Client secret: {dest_secret}")
 
 
 @auth_app.command("status")

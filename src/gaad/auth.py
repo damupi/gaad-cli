@@ -122,6 +122,9 @@ def deserialize_oauth2_credentials(data: dict[str, Any]) -> google.oauth2.creden
     expiry: datetime | None = None
     if data.get("expiry"):
         expiry = datetime.fromisoformat(data["expiry"])
+        # google-auth compares expiry against naive utcnow() — strip tzinfo
+        if expiry.tzinfo is not None:
+            expiry = expiry.replace(tzinfo=None)
 
     return google.oauth2.credentials.Credentials(
         token=data.get("token"),
