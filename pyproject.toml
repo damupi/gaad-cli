@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gaad-cli"
+version = "0.1.0"
+description = "Google Analytics 4 Admin CLI"
+requires-python = ">=3.11"
+dependencies = [
+  "typer>=0.12",
+  "rich>=13",
+  "google-analytics-admin>=0.23",
+  "google-auth>=2.37",
+  "google-auth-oauthlib>=1.2",
+]
+
+[project.scripts]
+gaad = "gaad.cli:app"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "pytest-mock>=3",
+  "pytest-cov>=5",
+  "typer[all]>=0.12",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gaad"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=src/gaad --cov-report=term-missing --cov-fail-under=80"
+pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["src/gaad"]

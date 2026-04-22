@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+.coverage
+htmlcov/
+.env
+**/credentials*.json
+**/service_account*.json
+**/client_secret*.json
+uv.lock
