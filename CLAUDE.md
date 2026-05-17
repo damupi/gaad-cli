@@ -74,3 +74,19 @@ Release Please is configured in `.github/workflows/release-please.yml` and will 
 | `custom-dimensions` | `list`, `get`, `create`, `patch`, `archive` |
 | `custom-metrics` | `list`, `get`, `create`, `patch`, `archive` |
 | `annotations` | `list`, `get`, `create`, `patch`, `delete` |
+| `channel-groups` | `list`, `get`, `create`, `patch`, `delete` |
+
+## Implementation notes
+
+### Channel Groups — valid filter field names
+
+The GA4 API uses internal dimension names that differ from the official docs:
+
+| UI Label | `fieldName` value |
+|---|---|
+| Default channel group | `eachScopeDefaultChannelGroup` |
+| Source | `eachScopeSource` |
+| Medium | `eachScopeMedium` |
+| Source platform | `eachScopeSourcePlatform` |
+| Campaign ID | `eachScopeCampaignId` |
+| Campaign name | `eachScopeCampaignName` |

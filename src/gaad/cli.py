@@ -7,6 +7,7 @@ import typer
 from gaad.commands.annotations import annotations_app
 from gaad.commands.auth import auth_app
 from gaad.commands.accounts import accounts_app
+from gaad.commands.channel_groups import channel_groups_app
 from gaad.commands.custom_dimensions import custom_dimensions_app
 from gaad.commands.custom_metrics import custom_metrics_app
 from gaad.commands.data_streams import data_streams_app
@@ -22,6 +23,7 @@ app.add_typer(key_events_app, name="key-events")
 app.add_typer(custom_dimensions_app, name="custom-dimensions")
 app.add_typer(custom_metrics_app, name="custom-metrics")
 app.add_typer(annotations_app, name="annotations")
+app.add_typer(channel_groups_app, name="channel-groups")
 
 if __name__ == "__main__":
     app()
