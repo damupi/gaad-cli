@@ -2,54 +2,30 @@
 
 from __future__ import annotations
 
-import csv
-import io
-import json
-from enum import Enum
 from typing import Annotated, Optional
 
 import typer
 from google.analytics.admin_v1beta import types as admin_types
 from google.protobuf import field_mask_pb2
-from rich.console import Console
 from rich.table import Table
 
-from gaad import config as cfg
-from gaad.auth import build_admin_client, get_credentials
-from gaad.errors import AuthError
-
-console = Console()
-err_console = Console(stderr=True)
+from gaad.shared import (
+    OutputFormat,
+    console,
+    enum_name,
+    err_console,
+    extract_id,
+    get_client,
+    render_csv,
+    render_json,
+)
 
 key_events_app = typer.Typer(name="key-events", help="Key Events management commands")
-
-
-class OutputFormat(str, Enum):
-    """Supported output formats."""
-
-    table = "table"
-    json = "json"
-    csv = "csv"
 
 
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
-
-
-def _get_client():
-    """Load config, authenticate, and return an admin API client.
-
-    Raises:
-        typer.Exit: with code 1 when authentication fails.
-    """
-    config = cfg.load_config()
-    try:
-        creds = get_credentials(config)
-    except AuthError as exc:
-        err_console.print(f"[red]Error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    return build_admin_client(creds)
 
 
 def _key_event_to_dict(ke) -> dict:
@@ -61,12 +37,8 @@ def _key_event_to_dict(ke) -> dict:
     Returns:
         A flat dictionary with all key event fields.
     """
-    key_event_id = ke.name.split("/")[-1]
-    counting_method = (
-        ke.counting_method.name
-        if hasattr(ke.counting_method, "name")
-        else str(ke.counting_method)
-    )
+    key_event_id = extract_id(ke.name)
+    counting_method = enum_name(ke.counting_method)
 
     data: dict = {
         "key_event_id": key_event_id,
@@ -91,20 +63,16 @@ def _render_key_event(ke, output: OutputFormat) -> None:
         ke: A GA4 KeyEvent resource object.
         output: The desired output format.
     """
-    key_event_id = ke.name.split("/")[-1]
+    key_event_id = extract_id(ke.name)
     data = _key_event_to_dict(ke)
     fields = list(data.keys())
 
     if output == OutputFormat.json:
-        typer.echo(json.dumps(data, indent=2, default=str))
+        render_json(data)
         return
 
     if output == OutputFormat.csv:
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=fields)
-        writer.writeheader()
-        writer.writerow(data)
-        typer.echo(buf.getvalue().rstrip())
+        render_csv([data], fieldnames=fields)
         return
 
     # Default: rich key/value table
@@ -133,18 +101,14 @@ def list_key_events(
     ] = OutputFormat.table,
 ) -> None:
     """List all key events for a GA4 property."""
-    client = _get_client()
+    client = get_client()
     key_events = list(client.list_key_events(parent=f"properties/{property_id}"))
 
     rows: list[dict] = [
         {
-            "key_event_id": ke.name.split("/")[-1],
+            "key_event_id": extract_id(ke.name),
             "event_name": ke.event_name,
-            "counting_method": (
-                ke.counting_method.name
-                if hasattr(ke.counting_method, "name")
-                else str(ke.counting_method)
-            ),
+            "counting_method": enum_name(ke.counting_method),
             "deletable": ke.deletable,
             "custom": ke.custom,
         }
@@ -152,16 +116,12 @@ def list_key_events(
     ]
 
     if output == OutputFormat.json:
-        typer.echo(json.dumps(rows, indent=2, default=str))
+        render_json(rows)
         return
 
     if output == OutputFormat.csv:
-        buf = io.StringIO()
         fieldnames = ["key_event_id", "event_name", "counting_method", "deletable", "custom"]
-        writer = csv.DictWriter(buf, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-        typer.echo(buf.getvalue().rstrip())
+        render_csv(rows, fieldnames=fieldnames)
         return
 
     # Default: rich table
@@ -198,7 +158,7 @@ def get_key_event(
     ] = OutputFormat.table,
 ) -> None:
     """Get details for a specific key event."""
-    client = _get_client()
+    client = get_client()
     ke = client.get_key_event(
         name=f"properties/{property_id}/keyEvents/{key_event_id}"
     )
@@ -246,7 +206,7 @@ def create_key_event(
         )
         raise typer.Exit(code=1)
 
-    client = _get_client()
+    client = get_client()
 
     ke = admin_types.KeyEvent(
         event_name=event_name,
@@ -315,7 +275,7 @@ def patch_key_event(
         )
         raise typer.Exit(code=1)
 
-    client = _get_client()
+    client = get_client()
 
     ke = admin_types.KeyEvent(
         name=f"properties/{property_id}/keyEvents/{key_event_id}"
@@ -354,7 +314,7 @@ def delete_key_event(
     ] = False,
 ) -> None:
     """Delete a key event (permanent)."""
-    client = _get_client()
+    client = get_client()
 
     # Always fetch the key event to check deletable and get event_name for the message
     ke = client.get_key_event(

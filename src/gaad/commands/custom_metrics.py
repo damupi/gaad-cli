@@ -2,56 +2,32 @@
 
 from __future__ import annotations
 
-import csv
-import io
-import json
-from enum import Enum
 from typing import Annotated, List, Optional
 
 import typer
 from google.analytics.admin_v1beta import types as admin_types
 from google.protobuf import field_mask_pb2
-from rich.console import Console
 from rich.table import Table
 
-from gaad import config as cfg
-from gaad.auth import build_admin_client, get_credentials
-from gaad.errors import AuthError
-
-console = Console()
-err_console = Console(stderr=True)
+from gaad.shared import (
+    OutputFormat,
+    console,
+    enum_name,
+    err_console,
+    extract_id,
+    get_client,
+    render_csv,
+    render_json,
+)
 
 custom_metrics_app = typer.Typer(
     name="custom-metrics", help="Custom Metrics management commands"
 )
 
 
-class OutputFormat(str, Enum):
-    """Supported output formats."""
-
-    table = "table"
-    json = "json"
-    csv = "csv"
-
-
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
-
-
-def _get_client():
-    """Load config, authenticate, and return an admin API client.
-
-    Raises:
-        typer.Exit: with code 1 when authentication fails.
-    """
-    config = cfg.load_config()
-    try:
-        creds = get_credentials(config)
-    except AuthError as exc:
-        err_console.print(f"[red]Error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    return build_admin_client(creds)
 
 
 def _metric_to_dict(metric) -> dict:
@@ -63,15 +39,11 @@ def _metric_to_dict(metric) -> dict:
     Returns:
         A flat dictionary with all custom metric fields.
     """
-    metric_id = metric.name.split("/")[-1]
-    measurement_unit = (
-        metric.measurement_unit.name
-        if hasattr(metric.measurement_unit, "name")
-        else str(metric.measurement_unit)
-    )
-    scope = metric.scope.name if hasattr(metric.scope, "name") else str(metric.scope)
+    metric_id = extract_id(metric.name)
+    measurement_unit = enum_name(metric.measurement_unit)
+    scope = enum_name(metric.scope)
     restricted = ",".join(
-        [str(r.name) if hasattr(r, "name") else str(r) for r in metric.restricted_metric_type]
+        [enum_name(r) for r in metric.restricted_metric_type]
     )
     return {
         "metric_id": metric_id,
@@ -91,20 +63,16 @@ def _render_metric(metric, output: OutputFormat) -> None:
         metric: A GA4 CustomMetric resource object.
         output: The desired output format.
     """
-    metric_id = metric.name.split("/")[-1]
+    metric_id = extract_id(metric.name)
     data = _metric_to_dict(metric)
     fields = list(data.keys())
 
     if output == OutputFormat.json:
-        typer.echo(json.dumps(data, indent=2, default=str))
+        render_json(data)
         return
 
     if output == OutputFormat.csv:
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=fields)
-        writer.writeheader()
-        writer.writerow(data)
-        typer.echo(buf.getvalue().rstrip())
+        render_csv([data], fieldnames=fields)
         return
 
     # Default: rich key/value table
@@ -133,35 +101,27 @@ def list_custom_metrics(
     ] = OutputFormat.table,
 ) -> None:
     """List all custom metrics for a GA4 property."""
-    client = _get_client()
+    client = get_client()
     metrics = list(client.list_custom_metrics(parent=f"properties/{property_id}"))
 
     rows: list[dict] = [
         {
-            "metric_id": m.name.split("/")[-1],
+            "metric_id": extract_id(m.name),
             "parameter_name": m.parameter_name,
             "display_name": m.display_name,
-            "measurement_unit": (
-                m.measurement_unit.name
-                if hasattr(m.measurement_unit, "name")
-                else str(m.measurement_unit)
-            ),
-            "scope": m.scope.name if hasattr(m.scope, "name") else str(m.scope),
+            "measurement_unit": enum_name(m.measurement_unit),
+            "scope": enum_name(m.scope),
         }
         for m in metrics
     ]
 
     if output == OutputFormat.json:
-        typer.echo(json.dumps(rows, indent=2, default=str))
+        render_json(rows)
         return
 
     if output == OutputFormat.csv:
-        buf = io.StringIO()
         fieldnames = ["metric_id", "parameter_name", "display_name", "measurement_unit", "scope"]
-        writer = csv.DictWriter(buf, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-        typer.echo(buf.getvalue().rstrip())
+        render_csv(rows, fieldnames=fieldnames)
         return
 
     # Default: rich table
@@ -198,7 +158,7 @@ def get_custom_metric(
     ] = OutputFormat.table,
 ) -> None:
     """Get details for a specific custom metric."""
-    client = _get_client()
+    client = get_client()
     metric = client.get_custom_metric(
         name=f"properties/{property_id}/customMetrics/{metric_id}"
     )
@@ -263,7 +223,7 @@ def create_custom_metric(
         )
         raise typer.Exit(code=1)
 
-    client = _get_client()
+    client = get_client()
 
     metric = admin_types.CustomMetric(
         parameter_name=parameter_name,
@@ -344,7 +304,7 @@ def patch_custom_metric(
             )
             raise typer.Exit(code=1)
 
-    client = _get_client()
+    client = get_client()
 
     metric = admin_types.CustomMetric(
         name=f"properties/{property_id}/customMetrics/{metric_id}"
@@ -385,7 +345,7 @@ def archive_custom_metric(
     ] = False,
 ) -> None:
     """Archive a custom metric (soft-removes it from reports)."""
-    client = _get_client()
+    client = get_client()
 
     if not force:
         metric = client.get_custom_metric(

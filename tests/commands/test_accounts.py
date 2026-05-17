@@ -42,14 +42,6 @@ def _make_mock_settings() -> MagicMock:
     return mock_settings
 
 
-def _patch_client(mock_client: MagicMock):
-    """Return a context manager tuple that patches creds + client builder."""
-    return (
-        patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()),
-        patch("gaad.commands.accounts.build_admin_client", return_value=mock_client),
-    )
-
-
 # ---------------------------------------------------------------------------
 # Existing tests
 # ---------------------------------------------------------------------------
@@ -60,19 +52,11 @@ class TestAccountsList:
     def test_list_calls_list_accounts_and_renders_table(
         self, tmp_config_dir: Path, sample_accounts: list[MagicMock]
     ) -> None:
-        from gaad import config as cfg
+        mock_client = MagicMock()
+        mock_client.list_accounts.return_value = sample_accounts
 
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
-        with patch("gaad.commands.accounts.get_credentials") as mock_creds:
-            with patch("gaad.commands.accounts.build_admin_client") as mock_build:
-                mock_client = MagicMock()
-                mock_client.list_accounts.return_value = sample_accounts
-                mock_build.return_value = mock_client
-                mock_creds.return_value = MagicMock()
-
-                result = runner.invoke(app, ["accounts", "list"])
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(app, ["accounts", "list"])
 
         assert result.exit_code == 0, result.output
         mock_client.list_accounts.assert_called_once()
@@ -83,19 +67,11 @@ class TestAccountsList:
     def test_list_output_json_is_valid_list(
         self, tmp_config_dir: Path, sample_accounts: list[MagicMock]
     ) -> None:
-        from gaad import config as cfg
+        mock_client = MagicMock()
+        mock_client.list_accounts.return_value = sample_accounts
 
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
-        with patch("gaad.commands.accounts.get_credentials") as mock_creds:
-            with patch("gaad.commands.accounts.build_admin_client") as mock_build:
-                mock_client = MagicMock()
-                mock_client.list_accounts.return_value = sample_accounts
-                mock_build.return_value = mock_client
-                mock_creds.return_value = MagicMock()
-
-                result = runner.invoke(app, ["accounts", "list", "--output", "json"])
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(app, ["accounts", "list", "--output", "json"])
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -106,19 +82,11 @@ class TestAccountsList:
     def test_list_output_csv_has_header_and_rows(
         self, tmp_config_dir: Path, sample_accounts: list[MagicMock]
     ) -> None:
-        from gaad import config as cfg
+        mock_client = MagicMock()
+        mock_client.list_accounts.return_value = sample_accounts
 
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
-        with patch("gaad.commands.accounts.get_credentials") as mock_creds:
-            with patch("gaad.commands.accounts.build_admin_client") as mock_build:
-                mock_client = MagicMock()
-                mock_client.list_accounts.return_value = sample_accounts
-                mock_build.return_value = mock_client
-                mock_creds.return_value = MagicMock()
-
-                result = runner.invoke(app, ["accounts", "list", "--output", "csv"])
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(app, ["accounts", "list", "--output", "csv"])
 
         assert result.exit_code == 0, result.output
         lines = result.output.strip().splitlines()
@@ -131,8 +99,7 @@ class TestAccountsList:
     ) -> None:
         from gaad.errors import AuthError
 
-        with patch("gaad.commands.accounts.get_credentials") as mock_creds:
-            mock_creds.side_effect = AuthError("Not authenticated. Run: gaad auth login")
+        with patch("gaad.shared.client.get_credentials", side_effect=AuthError("Not authenticated. Run: gaad auth login")):
             result = runner.invoke(app, ["accounts", "list"])
 
         assert result.exit_code != 0
@@ -141,23 +108,15 @@ class TestAccountsList:
     def test_list_extracts_account_id_from_name(
         self, tmp_config_dir: Path
     ) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         acct = MagicMock()
         acct.name = "accounts/987654321"
         acct.display_name = "Test Account"
 
-        with patch("gaad.commands.accounts.get_credentials") as mock_creds:
-            with patch("gaad.commands.accounts.build_admin_client") as mock_build:
-                mock_client = MagicMock()
-                mock_client.list_accounts.return_value = [acct]
-                mock_build.return_value = mock_client
-                mock_creds.return_value = MagicMock()
+        mock_client = MagicMock()
+        mock_client.list_accounts.return_value = [acct]
 
-                result = runner.invoke(app, ["accounts", "list"])
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(app, ["accounts", "list"])
 
         assert result.exit_code == 0
         assert "987654321" in result.output
@@ -174,9 +133,8 @@ class TestAccountsGet:
         mock_client = MagicMock()
         mock_client.get_account.return_value = _make_mock_account()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(app, ["accounts", "get", "--account-id", "123"])
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(app, ["accounts", "get", "--account-id", "123"])
 
         assert result.exit_code == 0, result.output
         mock_client.get_account.assert_called_once_with(name="accounts/123")
@@ -185,9 +143,8 @@ class TestAccountsGet:
         mock_client = MagicMock()
         mock_client.get_account.return_value = _make_mock_account()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(app, ["accounts", "get", "--account-id", "123"])
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(app, ["accounts", "get", "--account-id", "123"])
 
         assert result.exit_code == 0, result.output
         assert "Test Account" in result.output
@@ -196,11 +153,10 @@ class TestAccountsGet:
         mock_client = MagicMock()
         mock_client.get_account.return_value = _make_mock_account()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app, ["accounts", "get", "--account-id", "123", "--output", "json"]
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app, ["accounts", "get", "--account-id", "123", "--output", "json"]
+            )
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -211,11 +167,10 @@ class TestAccountsGet:
         mock_client = MagicMock()
         mock_client.get_account.return_value = _make_mock_account()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app, ["accounts", "get", "--account-id", "123", "--output", "csv"]
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app, ["accounts", "get", "--account-id", "123", "--output", "csv"]
+            )
 
         assert result.exit_code == 0, result.output
         lines = result.output.strip().splitlines()
@@ -226,7 +181,7 @@ class TestAccountsGet:
         from gaad.errors import AuthError
 
         with patch(
-            "gaad.commands.accounts.get_credentials",
+            "gaad.shared.client.get_credentials",
             side_effect=AuthError("Not authenticated"),
         ):
             result = runner.invoke(app, ["accounts", "get", "--account-id", "123"])
@@ -245,11 +200,10 @@ class TestAccountsDelete:
         mock_client = MagicMock()
         mock_client.get_account.return_value = _make_mock_account()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app, ["accounts", "delete", "--account-id", "123", "--force"]
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app, ["accounts", "delete", "--account-id", "123", "--force"]
+            )
 
         assert result.exit_code == 0, result.output
         mock_client.delete_account.assert_called_once_with(name="accounts/123")
@@ -258,11 +212,10 @@ class TestAccountsDelete:
         mock_client = MagicMock()
         mock_client.get_account.return_value = _make_mock_account()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app, ["accounts", "delete", "--account-id", "123", "--force"]
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app, ["accounts", "delete", "--account-id", "123", "--force"]
+            )
 
         assert result.exit_code == 0, result.output
         assert "trash" in result.output.lower() or "30 days" in result.output.lower()
@@ -271,11 +224,10 @@ class TestAccountsDelete:
         mock_client = MagicMock()
         mock_client.get_account.return_value = _make_mock_account()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app, ["accounts", "delete", "--account-id", "123"], input="y\n"
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app, ["accounts", "delete", "--account-id", "123"], input="y\n"
+            )
 
         assert result.exit_code == 0, result.output
         mock_client.delete_account.assert_called_once_with(name="accounts/123")
@@ -284,11 +236,10 @@ class TestAccountsDelete:
         mock_client = MagicMock()
         mock_client.get_account.return_value = _make_mock_account()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app, ["accounts", "delete", "--account-id", "123"], input="n\n"
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app, ["accounts", "delete", "--account-id", "123"], input="n\n"
+            )
 
         assert result.exit_code == 0, result.output
         mock_client.delete_account.assert_not_called()
@@ -297,7 +248,7 @@ class TestAccountsDelete:
         from gaad.errors import AuthError
 
         with patch(
-            "gaad.commands.accounts.get_credentials",
+            "gaad.shared.client.get_credentials",
             side_effect=AuthError("Not authenticated"),
         ):
             result = runner.invoke(
@@ -318,12 +269,11 @@ class TestAccountsGetDataSharingSettings:
         mock_client = MagicMock()
         mock_client.get_data_sharing_settings.return_value = _make_mock_settings()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    ["accounts", "get-data-sharing-settings", "--account-id", "123"],
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app,
+                ["accounts", "get-data-sharing-settings", "--account-id", "123"],
+            )
 
         assert result.exit_code == 0, result.output
         mock_client.get_data_sharing_settings.assert_called_once_with(
@@ -334,12 +284,11 @@ class TestAccountsGetDataSharingSettings:
         mock_client = MagicMock()
         mock_client.get_data_sharing_settings.return_value = _make_mock_settings()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    ["accounts", "get-data-sharing-settings", "--account-id", "123"],
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app,
+                ["accounts", "get-data-sharing-settings", "--account-id", "123"],
+            )
 
         assert result.exit_code == 0, result.output
         assert "Yes" in result.output
@@ -349,19 +298,18 @@ class TestAccountsGetDataSharingSettings:
         mock_client = MagicMock()
         mock_client.get_data_sharing_settings.return_value = _make_mock_settings()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "accounts",
-                        "get-data-sharing-settings",
-                        "--account-id",
-                        "123",
-                        "--output",
-                        "json",
-                    ],
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "accounts",
+                    "get-data-sharing-settings",
+                    "--account-id",
+                    "123",
+                    "--output",
+                    "json",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -371,19 +319,18 @@ class TestAccountsGetDataSharingSettings:
         mock_client = MagicMock()
         mock_client.get_data_sharing_settings.return_value = _make_mock_settings()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "accounts",
-                        "get-data-sharing-settings",
-                        "--account-id",
-                        "123",
-                        "--output",
-                        "csv",
-                    ],
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "accounts",
+                    "get-data-sharing-settings",
+                    "--account-id",
+                    "123",
+                    "--output",
+                    "csv",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         lines = result.output.strip().splitlines()
@@ -402,19 +349,18 @@ class TestAccountsPatch:
         mock_client = MagicMock()
         mock_client.update_account.return_value = _make_mock_account()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "accounts",
-                        "patch",
-                        "--account-id",
-                        "123",
-                        "--display-name",
-                        "New Name",
-                    ],
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "accounts",
+                    "patch",
+                    "--account-id",
+                    "123",
+                    "--display-name",
+                    "New Name",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         mock_client.update_account.assert_called_once()
@@ -423,19 +369,18 @@ class TestAccountsPatch:
         mock_client = MagicMock()
         mock_client.update_account.return_value = _make_mock_account()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "accounts",
-                        "patch",
-                        "--account-id",
-                        "123",
-                        "--display-name",
-                        "New Name",
-                    ],
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "accounts",
+                    "patch",
+                    "--account-id",
+                    "123",
+                    "--display-name",
+                    "New Name",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         call_kwargs = mock_client.update_account.call_args
@@ -446,21 +391,20 @@ class TestAccountsPatch:
         mock_client = MagicMock()
         mock_client.update_account.return_value = _make_mock_account()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "accounts",
-                        "patch",
-                        "--account-id",
-                        "123",
-                        "--display-name",
-                        "New Name",
-                        "--region-code",
-                        "US",
-                    ],
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "accounts",
+                    "patch",
+                    "--account-id",
+                    "123",
+                    "--display-name",
+                    "New Name",
+                    "--region-code",
+                    "US",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         call_kwargs = mock_client.update_account.call_args
@@ -473,19 +417,18 @@ class TestAccountsPatch:
         updated.display_name = "New Name"
         mock_client.update_account.return_value = updated
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "accounts",
-                        "patch",
-                        "--account-id",
-                        "123",
-                        "--display-name",
-                        "New Name",
-                    ],
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "accounts",
+                    "patch",
+                    "--account-id",
+                    "123",
+                    "--display-name",
+                    "New Name",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         assert "New Name" in result.output
@@ -493,11 +436,10 @@ class TestAccountsPatch:
     def test_patch_missing_display_name_exits_nonzero(self, tmp_config_dir: Path) -> None:
         mock_client = MagicMock()
 
-        with patch("gaad.commands.accounts.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.accounts.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    ["accounts", "patch", "--account-id", "123"],
-                )
+        with patch("gaad.commands.accounts.get_client", return_value=mock_client):
+            result = runner.invoke(
+                app,
+                ["accounts", "patch", "--account-id", "123"],
+            )
 
         assert result.exit_code != 0

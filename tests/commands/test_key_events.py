@@ -35,9 +35,8 @@ def _make_mock_key_event(pid: str = "123", kid: str = "456", event_name: str = "
 
 
 def _patch_client(mocker, mock_client: MagicMock) -> None:
-    """Patch get_credentials and build_admin_client in the key_events module."""
-    mocker.patch("gaad.commands.key_events.get_credentials", return_value=MagicMock())
-    mocker.patch("gaad.commands.key_events.build_admin_client", return_value=mock_client)
+    """Patch get_client in gaad.commands.key_events."""
+    mocker.patch("gaad.commands.key_events.get_client", return_value=mock_client)
 
 
 def _setup_config(tmp_config_dir: Path) -> None:
@@ -119,7 +118,7 @@ class TestKeyEventsList:
 
         _setup_config(tmp_config_dir)
         mocker.patch(
-            "gaad.commands.key_events.get_credentials",
+            "gaad.shared.client.get_credentials",
             side_effect=AuthError("Not authenticated"),
         )
 
@@ -617,7 +616,7 @@ class TestKeyEventsDelete:
 
         _setup_config(tmp_config_dir)
         mocker.patch(
-            "gaad.commands.key_events.get_credentials",
+            "gaad.shared.client.get_credentials",
             side_effect=AuthError("Not authenticated"),
         )
 

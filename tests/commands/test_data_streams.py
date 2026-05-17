@@ -72,11 +72,8 @@ def _make_mock_ios_stream(pid: str = "123", sid: str = "999") -> MagicMock:
 
 
 def _patch_client(mock_client: MagicMock):
-    """Return a pair of patch context managers for data_streams module."""
-    return (
-        patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()),
-        patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client),
-    )
+    """Return a patch context manager for get_client in shared.client."""
+    return patch("gaad.commands.data_streams.get_client", return_value=mock_client)
 
 
 def _setup_config(tmp_config_dir: Path) -> None:
@@ -100,11 +97,10 @@ class TestDataStreamsList:
         mock_client = MagicMock()
         mock_client.list_data_streams.return_value = [_make_mock_web_stream()]
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app, ["data-streams", "list", "--property-id", "123"]
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app, ["data-streams", "list", "--property-id", "123"]
+            )
 
         assert result.exit_code == 0, result.output
         mock_client.list_data_streams.assert_called_once_with(parent="properties/123")
@@ -117,11 +113,10 @@ class TestDataStreamsList:
             _make_mock_android_stream(),
         ]
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app, ["data-streams", "list", "--property-id", "123"]
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app, ["data-streams", "list", "--property-id", "123"]
+            )
 
         assert result.exit_code == 0, result.output
         assert "My Website" in result.output
@@ -135,11 +130,10 @@ class TestDataStreamsList:
             _make_mock_android_stream(),
         ]
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app, ["data-streams", "list", "--property-id", "123", "--output", "json"]
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app, ["data-streams", "list", "--property-id", "123", "--output", "json"]
+            )
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -151,11 +145,10 @@ class TestDataStreamsList:
         mock_client = MagicMock()
         mock_client.list_data_streams.return_value = [_make_mock_web_stream()]
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app, ["data-streams", "list", "--property-id", "123", "--output", "csv"]
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app, ["data-streams", "list", "--property-id", "123", "--output", "csv"]
+            )
 
         assert result.exit_code == 0, result.output
         first_line = result.output.strip().splitlines()[0]
@@ -165,7 +158,7 @@ class TestDataStreamsList:
         from gaad.errors import AuthError
 
         with patch(
-            "gaad.commands.data_streams.get_credentials",
+            "gaad.shared.client.get_credentials",
             side_effect=AuthError("Not authenticated"),
         ):
             result = runner.invoke(
@@ -188,19 +181,18 @@ class TestDataStreamsGet:
         mock_client = MagicMock()
         mock_client.get_data_stream.return_value = _make_mock_web_stream()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "get",
-                        "--property-id",
-                        "123",
-                        "--stream-id",
-                        "456",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "get",
+                    "--property-id",
+                    "123",
+                    "--stream-id",
+                    "456",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         mock_client.get_data_stream.assert_called_once_with(
@@ -212,19 +204,18 @@ class TestDataStreamsGet:
         mock_client = MagicMock()
         mock_client.get_data_stream.return_value = _make_mock_web_stream()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "get",
-                        "--property-id",
-                        "123",
-                        "--stream-id",
-                        "456",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "get",
+                    "--property-id",
+                    "123",
+                    "--stream-id",
+                    "456",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         assert "My Website" in result.output
@@ -234,21 +225,20 @@ class TestDataStreamsGet:
         mock_client = MagicMock()
         mock_client.get_data_stream.return_value = _make_mock_web_stream()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "get",
-                        "--property-id",
-                        "123",
-                        "--stream-id",
-                        "456",
-                        "--output",
-                        "json",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "get",
+                    "--property-id",
+                    "123",
+                    "--stream-id",
+                    "456",
+                    "--output",
+                    "json",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -259,21 +249,20 @@ class TestDataStreamsGet:
         mock_client = MagicMock()
         mock_client.get_data_stream.return_value = _make_mock_web_stream()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "get",
-                        "--property-id",
-                        "123",
-                        "--stream-id",
-                        "456",
-                        "--output",
-                        "json",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "get",
+                    "--property-id",
+                    "123",
+                    "--stream-id",
+                    "456",
+                    "--output",
+                    "json",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -284,21 +273,20 @@ class TestDataStreamsGet:
         mock_client = MagicMock()
         mock_client.get_data_stream.return_value = _make_mock_web_stream()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "get",
-                        "--property-id",
-                        "123",
-                        "--stream-id",
-                        "456",
-                        "--output",
-                        "csv",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "get",
+                    "--property-id",
+                    "123",
+                    "--stream-id",
+                    "456",
+                    "--output",
+                    "csv",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         lines = result.output.strip().splitlines()
@@ -309,12 +297,11 @@ class TestDataStreamsGet:
         _setup_config(tmp_config_dir)
         mock_client = MagicMock()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    ["data-streams", "get", "--property-id", "123"],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                ["data-streams", "get", "--property-id", "123"],
+            )
 
         assert result.exit_code != 0
 
@@ -332,23 +319,22 @@ class TestDataStreamsCreate:
         mock_client = MagicMock()
         mock_client.create_data_stream.return_value = _make_mock_web_stream()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "create",
-                        "--property-id",
-                        "123",
-                        "--display-name",
-                        "My Website",
-                        "--type",
-                        "WEB_DATA_STREAM",
-                        "--default-uri",
-                        "https://example.com",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "create",
+                    "--property-id",
+                    "123",
+                    "--display-name",
+                    "My Website",
+                    "--type",
+                    "WEB_DATA_STREAM",
+                    "--default-uri",
+                    "https://example.com",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         mock_client.create_data_stream.assert_called_once()
@@ -359,23 +345,22 @@ class TestDataStreamsCreate:
         mock_client = MagicMock()
         mock_client.create_data_stream.return_value = _make_mock_android_stream()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "create",
-                        "--property-id",
-                        "123",
-                        "--display-name",
-                        "My Android App",
-                        "--type",
-                        "ANDROID_APP_DATA_STREAM",
-                        "--package-name",
-                        "com.x",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "create",
+                    "--property-id",
+                    "123",
+                    "--display-name",
+                    "My Android App",
+                    "--type",
+                    "ANDROID_APP_DATA_STREAM",
+                    "--package-name",
+                    "com.x",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         mock_client.create_data_stream.assert_called_once()
@@ -385,23 +370,22 @@ class TestDataStreamsCreate:
         mock_client = MagicMock()
         mock_client.create_data_stream.return_value = _make_mock_ios_stream()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "create",
-                        "--property-id",
-                        "123",
-                        "--display-name",
-                        "My iOS App",
-                        "--type",
-                        "IOS_APP_DATA_STREAM",
-                        "--bundle-id",
-                        "com.x",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "create",
+                    "--property-id",
+                    "123",
+                    "--display-name",
+                    "My iOS App",
+                    "--type",
+                    "IOS_APP_DATA_STREAM",
+                    "--bundle-id",
+                    "com.x",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         mock_client.create_data_stream.assert_called_once()
@@ -410,21 +394,20 @@ class TestDataStreamsCreate:
         _setup_config(tmp_config_dir)
         mock_client = MagicMock()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "create",
-                        "--property-id",
-                        "123",
-                        "--display-name",
-                        "My Android App",
-                        "--type",
-                        "ANDROID_APP_DATA_STREAM",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "create",
+                    "--property-id",
+                    "123",
+                    "--display-name",
+                    "My Android App",
+                    "--type",
+                    "ANDROID_APP_DATA_STREAM",
+                ],
+            )
 
         assert result.exit_code != 0
 
@@ -432,21 +415,20 @@ class TestDataStreamsCreate:
         _setup_config(tmp_config_dir)
         mock_client = MagicMock()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "create",
-                        "--property-id",
-                        "123",
-                        "--display-name",
-                        "My iOS App",
-                        "--type",
-                        "IOS_APP_DATA_STREAM",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "create",
+                    "--property-id",
+                    "123",
+                    "--display-name",
+                    "My iOS App",
+                    "--type",
+                    "IOS_APP_DATA_STREAM",
+                ],
+            )
 
         assert result.exit_code != 0
 
@@ -455,23 +437,22 @@ class TestDataStreamsCreate:
         mock_client = MagicMock()
         mock_client.create_data_stream.return_value = _make_mock_web_stream()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "create",
-                        "--property-id",
-                        "123",
-                        "--display-name",
-                        "My Website",
-                        "--type",
-                        "WEB_DATA_STREAM",
-                        "--output",
-                        "json",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "create",
+                    "--property-id",
+                    "123",
+                    "--display-name",
+                    "My Website",
+                    "--type",
+                    "WEB_DATA_STREAM",
+                    "--output",
+                    "json",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -492,21 +473,20 @@ class TestDataStreamsPatch:
         mock_client = MagicMock()
         mock_client.update_data_stream.return_value = _make_mock_web_stream()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "patch",
-                        "--property-id",
-                        "123",
-                        "--stream-id",
-                        "456",
-                        "--display-name",
-                        "Updated Name",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "patch",
+                    "--property-id",
+                    "123",
+                    "--stream-id",
+                    "456",
+                    "--display-name",
+                    "Updated Name",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         mock_client.update_data_stream.assert_called_once()
@@ -516,21 +496,20 @@ class TestDataStreamsPatch:
         mock_client = MagicMock()
         mock_client.update_data_stream.return_value = _make_mock_web_stream()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "patch",
-                        "--property-id",
-                        "123",
-                        "--stream-id",
-                        "456",
-                        "--display-name",
-                        "Updated Name",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "patch",
+                    "--property-id",
+                    "123",
+                    "--stream-id",
+                    "456",
+                    "--display-name",
+                    "Updated Name",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         call_kwargs = mock_client.update_data_stream.call_args
@@ -542,21 +521,20 @@ class TestDataStreamsPatch:
         mock_client = MagicMock()
         mock_client.update_data_stream.return_value = _make_mock_web_stream()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "patch",
-                        "--property-id",
-                        "123",
-                        "--stream-id",
-                        "456",
-                        "--default-uri",
-                        "https://updated.com",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "patch",
+                    "--property-id",
+                    "123",
+                    "--stream-id",
+                    "456",
+                    "--default-uri",
+                    "https://updated.com",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         call_kwargs = mock_client.update_data_stream.call_args
@@ -567,19 +545,18 @@ class TestDataStreamsPatch:
         _setup_config(tmp_config_dir)
         mock_client = MagicMock()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "patch",
-                        "--property-id",
-                        "123",
-                        "--stream-id",
-                        "456",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "patch",
+                    "--property-id",
+                    "123",
+                    "--stream-id",
+                    "456",
+                ],
+            )
 
         assert result.exit_code != 0
 
@@ -588,23 +565,22 @@ class TestDataStreamsPatch:
         mock_client = MagicMock()
         mock_client.update_data_stream.return_value = _make_mock_web_stream()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "patch",
-                        "--property-id",
-                        "123",
-                        "--stream-id",
-                        "456",
-                        "--display-name",
-                        "Updated Name",
-                        "--output",
-                        "json",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "patch",
+                    "--property-id",
+                    "123",
+                    "--stream-id",
+                    "456",
+                    "--display-name",
+                    "Updated Name",
+                    "--output",
+                    "json",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -624,20 +600,19 @@ class TestDataStreamsDelete:
         mock_client = MagicMock()
         mock_client.delete_data_stream.return_value = None
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "delete",
-                        "--property-id",
-                        "123",
-                        "--stream-id",
-                        "456",
-                        "--force",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "delete",
+                    "--property-id",
+                    "123",
+                    "--stream-id",
+                    "456",
+                    "--force",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         mock_client.delete_data_stream.assert_called_once_with(
@@ -649,20 +624,19 @@ class TestDataStreamsDelete:
         mock_client = MagicMock()
         mock_client.delete_data_stream.return_value = None
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "delete",
-                        "--property-id",
-                        "123",
-                        "--stream-id",
-                        "456",
-                        "--force",
-                    ],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "delete",
+                    "--property-id",
+                    "123",
+                    "--stream-id",
+                    "456",
+                    "--force",
+                ],
+            )
 
         assert result.exit_code == 0, result.output
         assert "deleted" in result.output.lower()
@@ -673,20 +647,19 @@ class TestDataStreamsDelete:
         mock_client.get_data_stream.return_value = _make_mock_web_stream()
         mock_client.delete_data_stream.return_value = None
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "delete",
-                        "--property-id",
-                        "123",
-                        "--stream-id",
-                        "456",
-                    ],
-                    input="y\n",
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "delete",
+                    "--property-id",
+                    "123",
+                    "--stream-id",
+                    "456",
+                ],
+                input="y\n",
+            )
 
         assert result.exit_code == 0, result.output
         mock_client.delete_data_stream.assert_called_once_with(
@@ -698,20 +671,19 @@ class TestDataStreamsDelete:
         mock_client = MagicMock()
         mock_client.get_data_stream.return_value = _make_mock_web_stream()
 
-        with patch("gaad.commands.data_streams.get_credentials", return_value=MagicMock()):
-            with patch("gaad.commands.data_streams.build_admin_client", return_value=mock_client):
-                result = runner.invoke(
-                    app,
-                    [
-                        "data-streams",
-                        "delete",
-                        "--property-id",
-                        "123",
-                        "--stream-id",
-                        "456",
-                    ],
-                    input="n\n",
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                [
+                    "data-streams",
+                    "delete",
+                    "--property-id",
+                    "123",
+                    "--stream-id",
+                    "456",
+                ],
+                input="n\n",
+            )
 
         assert result.exit_code == 0, result.output
         mock_client.delete_data_stream.assert_not_called()
@@ -720,7 +692,7 @@ class TestDataStreamsDelete:
         from gaad.errors import AuthError
 
         with patch(
-            "gaad.commands.data_streams.get_credentials",
+            "gaad.shared.client.get_credentials",
             side_effect=AuthError("Not authenticated"),
         ):
             result = runner.invoke(

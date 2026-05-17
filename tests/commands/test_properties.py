@@ -51,11 +51,8 @@ def _make_mock_retention():
 
 
 def _patch_client(mock_client):
-    """Return a context manager stack that patches both auth helpers."""
-    return (
-        patch("gaad.commands.properties.get_credentials", return_value=MagicMock()),
-        patch("gaad.commands.properties.build_admin_client", return_value=mock_client),
-    )
+    """Return a single patch context manager for get_client in shared.client."""
+    return patch("gaad.commands.properties.get_client", return_value=mock_client)
 
 
 # ---------------------------------------------------------------------------
@@ -68,19 +65,11 @@ class TestPropertiesList:
     def test_list_calls_list_properties_with_correct_filter(
         self, tmp_config_dir: Path, sample_properties: list[MagicMock]
     ) -> None:
-        from gaad import config as cfg
+        mock_client = MagicMock()
+        mock_client.list_properties.return_value = sample_properties
 
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
-        with patch("gaad.commands.properties.get_credentials") as mock_creds:
-            with patch("gaad.commands.properties.build_admin_client") as mock_build:
-                mock_client = MagicMock()
-                mock_client.list_properties.return_value = sample_properties
-                mock_build.return_value = mock_client
-                mock_creds.return_value = MagicMock()
-
-                result = runner.invoke(app, ["properties", "list", "--account-id", "123"])
+        with _patch_client(mock_client):
+            result = runner.invoke(app, ["properties", "list", "--account-id", "123"])
 
         assert result.exit_code == 0, result.output
         mock_client.list_properties.assert_called_once()
@@ -93,22 +82,14 @@ class TestPropertiesList:
     def test_list_show_deleted_passes_flag(
         self, tmp_config_dir: Path, sample_properties: list[MagicMock]
     ) -> None:
-        from gaad import config as cfg
+        mock_client = MagicMock()
+        mock_client.list_properties.return_value = sample_properties
 
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
-        with patch("gaad.commands.properties.get_credentials") as mock_creds:
-            with patch("gaad.commands.properties.build_admin_client") as mock_build:
-                mock_client = MagicMock()
-                mock_client.list_properties.return_value = sample_properties
-                mock_build.return_value = mock_client
-                mock_creds.return_value = MagicMock()
-
-                result = runner.invoke(
-                    app,
-                    ["properties", "list", "--account-id", "123", "--show-deleted"],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                ["properties", "list", "--account-id", "123", "--show-deleted"],
+            )
 
         assert result.exit_code == 0, result.output
         call_args = mock_client.list_properties.call_args
@@ -118,22 +99,14 @@ class TestPropertiesList:
     def test_list_output_json_is_valid(
         self, tmp_config_dir: Path, sample_properties: list[MagicMock]
     ) -> None:
-        from gaad import config as cfg
+        mock_client = MagicMock()
+        mock_client.list_properties.return_value = sample_properties
 
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
-        with patch("gaad.commands.properties.get_credentials") as mock_creds:
-            with patch("gaad.commands.properties.build_admin_client") as mock_build:
-                mock_client = MagicMock()
-                mock_client.list_properties.return_value = sample_properties
-                mock_build.return_value = mock_client
-                mock_creds.return_value = MagicMock()
-
-                result = runner.invoke(
-                    app,
-                    ["properties", "list", "--account-id", "123", "--output", "json"],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                ["properties", "list", "--account-id", "123", "--output", "json"],
+            )
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -154,19 +127,11 @@ class TestPropertiesList:
     def test_list_with_property_id_builds_parent_properties_filter(
         self, tmp_config_dir: Path, sample_properties: list[MagicMock]
     ) -> None:
-        from gaad import config as cfg
+        mock_client = MagicMock()
+        mock_client.list_properties.return_value = sample_properties
 
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
-        with patch("gaad.commands.properties.get_credentials") as mock_creds:
-            with patch("gaad.commands.properties.build_admin_client") as mock_build:
-                mock_client = MagicMock()
-                mock_client.list_properties.return_value = sample_properties
-                mock_build.return_value = mock_client
-                mock_creds.return_value = MagicMock()
-
-                result = runner.invoke(app, ["properties", "list", "--property-id", "789"])
+        with _patch_client(mock_client):
+            result = runner.invoke(app, ["properties", "list", "--property-id", "789"])
 
         assert result.exit_code == 0, result.output
         call_args = mock_client.list_properties.call_args
@@ -178,8 +143,7 @@ class TestPropertiesList:
     ) -> None:
         from gaad.errors import AuthError
 
-        with patch("gaad.commands.properties.get_credentials") as mock_creds:
-            mock_creds.side_effect = AuthError("Not authenticated. Run: gaad auth login")
+        with patch("gaad.shared.client.get_credentials", side_effect=AuthError("Not authenticated. Run: gaad auth login")):
             result = runner.invoke(
                 app, ["properties", "list", "--account-id", "123"]
             )
@@ -189,22 +153,14 @@ class TestPropertiesList:
     def test_list_output_csv_has_header_and_rows(
         self, tmp_config_dir: Path, sample_properties: list[MagicMock]
     ) -> None:
-        from gaad import config as cfg
+        mock_client = MagicMock()
+        mock_client.list_properties.return_value = sample_properties
 
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
-        with patch("gaad.commands.properties.get_credentials") as mock_creds:
-            with patch("gaad.commands.properties.build_admin_client") as mock_build:
-                mock_client = MagicMock()
-                mock_client.list_properties.return_value = sample_properties
-                mock_build.return_value = mock_client
-                mock_creds.return_value = MagicMock()
-
-                result = runner.invoke(
-                    app,
-                    ["properties", "list", "--account-id", "123", "--output", "csv"],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                ["properties", "list", "--account-id", "123", "--output", "csv"],
+            )
 
         assert result.exit_code == 0, result.output
         lines = result.output.strip().splitlines()
@@ -213,23 +169,15 @@ class TestPropertiesList:
         assert "Main Site" in result.output
 
     def test_list_extracts_property_id_from_name(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         prop = MagicMock()
         prop.name = "properties/99887766"
         prop.display_name = "My Property"
 
-        with patch("gaad.commands.properties.get_credentials") as mock_creds:
-            with patch("gaad.commands.properties.build_admin_client") as mock_build:
-                mock_client = MagicMock()
-                mock_client.list_properties.return_value = [prop]
-                mock_build.return_value = mock_client
-                mock_creds.return_value = MagicMock()
+        mock_client = MagicMock()
+        mock_client.list_properties.return_value = [prop]
 
-                result = runner.invoke(app, ["properties", "list", "--account-id", "123"])
+        with _patch_client(mock_client):
+            result = runner.invoke(app, ["properties", "list", "--account-id", "123"])
 
         assert result.exit_code == 0
         assert "99887766" in result.output
@@ -239,11 +187,6 @@ class TestPropertiesGet:
     """gaad properties get command."""
 
     def test_get_calls_get_property_with_correct_name(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         prop = MagicMock()
         prop.name = "properties/456"
         prop.display_name = "My Property"
@@ -255,14 +198,11 @@ class TestPropertiesGet:
         prop.time_zone = "America/Chicago"
         prop.industry_category = "FINANCE"
 
-        with patch("gaad.commands.properties.get_credentials") as mock_creds:
-            with patch("gaad.commands.properties.build_admin_client") as mock_build:
-                mock_client = MagicMock()
-                mock_client.get_property.return_value = prop
-                mock_build.return_value = mock_client
-                mock_creds.return_value = MagicMock()
+        mock_client = MagicMock()
+        mock_client.get_property.return_value = prop
 
-                result = runner.invoke(app, ["properties", "get", "--property-id", "456"])
+        with _patch_client(mock_client):
+            result = runner.invoke(app, ["properties", "get", "--property-id", "456"])
 
         assert result.exit_code == 0, result.output
         mock_client.get_property.assert_called_once_with(name="properties/456")
@@ -270,11 +210,6 @@ class TestPropertiesGet:
         assert "456" in result.output
 
     def test_get_output_json_contains_all_fields(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         prop = MagicMock()
         prop.name = "properties/789"
         prop.display_name = "JSON Property"
@@ -286,17 +221,14 @@ class TestPropertiesGet:
         prop.time_zone = "Europe/London"
         prop.industry_category = "RETAIL"
 
-        with patch("gaad.commands.properties.get_credentials") as mock_creds:
-            with patch("gaad.commands.properties.build_admin_client") as mock_build:
-                mock_client = MagicMock()
-                mock_client.get_property.return_value = prop
-                mock_build.return_value = mock_client
-                mock_creds.return_value = MagicMock()
+        mock_client = MagicMock()
+        mock_client.get_property.return_value = prop
 
-                result = runner.invoke(
-                    app,
-                    ["properties", "get", "--property-id", "789", "--output", "json"],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                ["properties", "get", "--property-id", "789", "--output", "json"],
+            )
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -311,11 +243,6 @@ class TestPropertiesGet:
         assert result.exit_code != 0
 
     def test_get_output_csv_has_header_and_row(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         prop = MagicMock()
         prop.name = "properties/321"
         prop.display_name = "CSV Property"
@@ -327,17 +254,14 @@ class TestPropertiesGet:
         prop.time_zone = "Europe/Paris"
         prop.industry_category = "EDUCATION"
 
-        with patch("gaad.commands.properties.get_credentials") as mock_creds:
-            with patch("gaad.commands.properties.build_admin_client") as mock_build:
-                mock_client = MagicMock()
-                mock_client.get_property.return_value = prop
-                mock_build.return_value = mock_client
-                mock_creds.return_value = MagicMock()
+        mock_client = MagicMock()
+        mock_client.get_property.return_value = prop
 
-                result = runner.invoke(
-                    app,
-                    ["properties", "get", "--property-id", "321", "--output", "csv"],
-                )
+        with _patch_client(mock_client):
+            result = runner.invoke(
+                app,
+                ["properties", "get", "--property-id", "321", "--output", "csv"],
+            )
 
         assert result.exit_code == 0, result.output
         lines = result.output.strip().splitlines()
@@ -348,8 +272,7 @@ class TestPropertiesGet:
     def test_get_with_no_auth_shows_error_and_exits_nonzero(self, tmp_config_dir: Path) -> None:
         from gaad.errors import AuthError
 
-        with patch("gaad.commands.properties.get_credentials") as mock_creds:
-            mock_creds.side_effect = AuthError("Not authenticated. Run: gaad auth login")
+        with patch("gaad.shared.client.get_credentials", side_effect=AuthError("Not authenticated. Run: gaad auth login")):
             result = runner.invoke(app, ["properties", "get", "--property-id", "999"])
 
         assert result.exit_code != 0
@@ -363,16 +286,10 @@ class TestPropertiesCreate:
     """gaad properties create command."""
 
     def test_create_calls_api_with_required_fields(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.create_property.return_value = _make_mock_property()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 [
@@ -388,16 +305,10 @@ class TestPropertiesCreate:
         assert "Test Property" in result.output or "456" in result.output
 
     def test_create_output_json_has_property_id(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.create_property.return_value = _make_mock_property(pid="456")
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 [
@@ -451,16 +362,10 @@ class TestPropertiesDelete:
     """gaad properties delete command."""
 
     def test_delete_force_calls_delete_property(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.delete_property.return_value = _make_mock_property()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 ["properties", "delete", "--property-id", "456", "--force"],
@@ -470,16 +375,10 @@ class TestPropertiesDelete:
         mock_client.delete_property.assert_called_once_with(name="properties/456")
 
     def test_delete_force_prints_trash_message(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.delete_property.return_value = _make_mock_property()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 ["properties", "delete", "--property-id", "456", "--force"],
@@ -489,17 +388,11 @@ class TestPropertiesDelete:
         assert "trash" in result.output.lower() or "recovered" in result.output.lower()
 
     def test_delete_confirms_before_deleting(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.get_property.return_value = _make_mock_property()
         mock_client.delete_property.return_value = _make_mock_property()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 ["properties", "delete", "--property-id", "456"],
@@ -510,16 +403,10 @@ class TestPropertiesDelete:
         mock_client.delete_property.assert_called_once_with(name="properties/456")
 
     def test_delete_aborts_on_no(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.get_property.return_value = _make_mock_property()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 ["properties", "delete", "--property-id", "456"],
@@ -532,8 +419,7 @@ class TestPropertiesDelete:
     def test_delete_auth_error_exits_nonzero(self, tmp_config_dir: Path) -> None:
         from gaad.errors import AuthError
 
-        with patch("gaad.commands.properties.get_credentials") as mock_creds:
-            mock_creds.side_effect = AuthError("Not authenticated")
+        with patch("gaad.shared.client.get_credentials", side_effect=AuthError("Not authenticated")):
             result = runner.invoke(
                 app,
                 ["properties", "delete", "--property-id", "456", "--force"],
@@ -546,16 +432,10 @@ class TestPropertiesGetDataRetentionSettings:
     """gaad properties get-data-retention-settings command."""
 
     def test_get_retention_calls_correct_api(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.get_data_retention_settings.return_value = _make_mock_retention()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 ["properties", "get-data-retention-settings", "--property-id", "456"],
@@ -567,16 +447,10 @@ class TestPropertiesGetDataRetentionSettings:
         )
 
     def test_get_retention_table_shows_fields(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.get_data_retention_settings.return_value = _make_mock_retention()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 ["properties", "get-data-retention-settings", "--property-id", "456"],
@@ -586,16 +460,10 @@ class TestPropertiesGetDataRetentionSettings:
         assert "FOURTEEN_MONTHS" in result.output or "TWO_MONTHS" in result.output
 
     def test_get_retention_json_has_expected_keys(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.get_data_retention_settings.return_value = _make_mock_retention()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 [
@@ -615,16 +483,10 @@ class TestPropertiesPatch:
     """gaad properties patch command."""
 
     def test_patch_calls_update_property(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.update_property.return_value = _make_mock_property()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 [
@@ -638,16 +500,10 @@ class TestPropertiesPatch:
         mock_client.update_property.assert_called_once()
 
     def test_patch_mask_contains_display_name(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.update_property.return_value = _make_mock_property()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 [
@@ -663,16 +519,10 @@ class TestPropertiesPatch:
         assert "display_name" in mask.paths
 
     def test_patch_multiple_fields_all_in_mask(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.update_property.return_value = _make_mock_property()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 [
@@ -690,15 +540,9 @@ class TestPropertiesPatch:
         assert "time_zone" in mask.paths
 
     def test_patch_no_fields_exits_nonzero(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 ["properties", "patch", "--property-id", "456"],
@@ -707,16 +551,10 @@ class TestPropertiesPatch:
         assert result.exit_code != 0
 
     def test_patch_output_json_has_property_id(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.update_property.return_value = _make_mock_property(pid="456")
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 [
@@ -736,16 +574,10 @@ class TestPropertiesUpdateDataRetentionSettings:
     """gaad properties update-data-retention-settings command."""
 
     def test_update_retention_calls_update_api(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.update_data_retention_settings.return_value = _make_mock_retention()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 [
@@ -759,16 +591,10 @@ class TestPropertiesUpdateDataRetentionSettings:
         mock_client.update_data_retention_settings.assert_called_once()
 
     def test_update_retention_mask_contains_event_duration(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.update_data_retention_settings.return_value = _make_mock_retention()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 [
@@ -784,16 +610,10 @@ class TestPropertiesUpdateDataRetentionSettings:
         assert "event_data_retention" in mask.paths
 
     def test_update_retention_reset_flag_included_in_mask(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
         mock_client.update_data_retention_settings.return_value = _make_mock_retention()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 [
@@ -809,15 +629,9 @@ class TestPropertiesUpdateDataRetentionSettings:
         assert "reset_user_data_on_new_activity" in mask.paths
 
     def test_update_retention_no_fields_exits_nonzero(self, tmp_config_dir: Path) -> None:
-        from gaad import config as cfg
-
-        cfg.set("auth_method", "token")
-        cfg.set("access_token", "tok")
-
         mock_client = MagicMock()
 
-        p1, p2 = _patch_client(mock_client)
-        with p1, p2:
+        with _patch_client(mock_client):
             result = runner.invoke(
                 app,
                 ["properties", "update-data-retention-settings", "--property-id", "456"],

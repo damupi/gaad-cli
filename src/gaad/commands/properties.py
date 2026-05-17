@@ -2,55 +2,31 @@
 
 from __future__ import annotations
 
-import csv
-import io
-import json
-from enum import Enum
 from typing import Annotated, Optional
 
 import typer
 from google.analytics.admin_v1beta import types as admin_types
 from google.analytics.admin_v1beta.types import ListPropertiesRequest
 from google.protobuf import field_mask_pb2
-from rich.console import Console
 from rich.table import Table
 
-from gaad import config as cfg
-from gaad.auth import build_admin_client, get_credentials
-from gaad.errors import AuthError
-
-console = Console()
-err_console = Console(stderr=True)
+from gaad.shared import (
+    OutputFormat,
+    console,
+    enum_name,
+    err_console,
+    extract_id,
+    get_client,
+    render_csv,
+    render_json,
+)
 
 properties_app = typer.Typer(name="properties", help="Property management commands")
-
-
-class OutputFormat(str, Enum):
-    """Supported output formats."""
-
-    table = "table"
-    json = "json"
-    csv = "csv"
 
 
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
-
-def _get_client():
-    """Load config, authenticate, and return an admin API client.
-
-    Raises:
-        typer.Exit: with code 1 when authentication fails.
-    """
-    config = cfg.load_config()
-    try:
-        creds = get_credentials(config)
-    except AuthError as exc:
-        err_console.print(f"[red]Error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    return build_admin_client(creds)
-
 
 _PROPERTY_FIELDS = [
     "property_id",
@@ -76,24 +52,19 @@ def _property_to_dict(prop) -> dict[str, str]:
     Returns:
         A dictionary with string values for all relevant property fields.
     """
-    property_id = prop.name.split("/")[-1]
-
-    def _enum_str(val) -> str:
-        if hasattr(val, "name"):
-            return str(val.name)
-        return str(val)
+    property_id = extract_id(prop.name)
 
     return {
         "property_id": property_id,
         "display_name": prop.display_name,
-        "property_type": _enum_str(prop.property_type),
+        "property_type": enum_name(prop.property_type),
         "parent": prop.parent,
         "create_time": str(prop.create_time),
         "update_time": str(prop.update_time),
         "time_zone": prop.time_zone,
         "currency_code": prop.currency_code,
-        "industry_category": _enum_str(prop.industry_category),
-        "service_level": _enum_str(prop.service_level),
+        "industry_category": enum_name(prop.industry_category),
+        "service_level": enum_name(prop.service_level),
         "deleted": str(prop.deleted),
     }
 
@@ -109,15 +80,11 @@ def _render_property(prop, output: OutputFormat) -> None:
     property_id = data["property_id"]
 
     if output == OutputFormat.json:
-        typer.echo(json.dumps(data, indent=2))
+        render_json(data)
         return
 
     if output == OutputFormat.csv:
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=_PROPERTY_FIELDS)
-        writer.writeheader()
-        writer.writerow(data)
-        typer.echo(buf.getvalue().rstrip())
+        render_csv([data], fieldnames=_PROPERTY_FIELDS)
         return
 
     # Default: rich key/value table
@@ -150,12 +117,8 @@ def _retention_to_dict(settings) -> dict:
         A dictionary with string/bool values for the settings fields.
     """
     return {
-        "event_data_retention": str(settings.event_data_retention.name)
-        if hasattr(settings.event_data_retention, "name")
-        else str(settings.event_data_retention),
-        "user_data_retention": str(settings.user_data_retention.name)
-        if hasattr(settings.user_data_retention, "name")
-        else str(settings.user_data_retention),
+        "event_data_retention": enum_name(settings.event_data_retention),
+        "user_data_retention": enum_name(settings.user_data_retention),
         "reset_user_data_on_new_activity": settings.reset_user_data_on_new_activity,
     }
 
@@ -171,17 +134,12 @@ def _render_retention(settings, property_id: str, output: OutputFormat) -> None:
     data = _retention_to_dict(settings)
 
     if output == OutputFormat.json:
-        typer.echo(json.dumps(data, indent=2))
+        render_json(data)
         return
 
     if output == OutputFormat.csv:
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=_RETENTION_FIELDS)
-        writer.writeheader()
-        # Normalise bool to string for CSV row
         row = {k: str(v) for k, v in data.items()}
-        writer.writerow(row)
-        typer.echo(buf.getvalue().rstrip())
+        render_csv([row], fieldnames=_RETENTION_FIELDS)
         return
 
     # Default: rich key/value table
@@ -234,28 +192,24 @@ def list_properties(
     filter_str = (
         f"parent:accounts/{account_id}" if account_id else f"parent:properties/{property_id}"
     )
-    client = _get_client()
+    client = get_client()
     request = ListPropertiesRequest(filter=filter_str, show_deleted=show_deleted)
     props = list(client.list_properties(request))
 
     rows: list[dict[str, str]] = [
         {
-            "property_id": prop.name.split("/")[-1],
+            "property_id": extract_id(prop.name),
             "display_name": prop.display_name,
         }
         for prop in props
     ]
 
     if output == OutputFormat.json:
-        typer.echo(json.dumps(rows, indent=2))
+        render_json(rows)
         return
 
     if output == OutputFormat.csv:
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=["property_id", "display_name"])
-        writer.writeheader()
-        writer.writerows(rows)
-        typer.echo(buf.getvalue().rstrip())
+        render_csv(rows, fieldnames=["property_id", "display_name"])
         return
 
     # Default: rich table
@@ -280,17 +234,12 @@ def get_property(
     ] = OutputFormat.table,
 ) -> None:
     """Get details for a single GA4 property."""
-    client = _get_client()
+    client = get_client()
     prop = client.get_property(name=f"properties/{property_id}")
 
     # The legacy get command has a narrower field set; keep it compatible with
     # existing tests that expect only the original fields in JSON output.
-    prop_id = prop.name.split("/")[-1]
-
-    def _enum_str(val) -> str:
-        if hasattr(val, "name"):
-            return str(val.name)
-        return str(val)
+    prop_id = extract_id(prop.name)
 
     data: dict[str, str] = {
         "property_id": prop_id,
@@ -299,19 +248,15 @@ def get_property(
         "update_time": str(prop.update_time),
         "currency_code": prop.currency_code,
         "time_zone": prop.time_zone,
-        "industry_category": _enum_str(prop.industry_category),
+        "industry_category": enum_name(prop.industry_category),
     }
 
     if output == OutputFormat.json:
-        typer.echo(json.dumps(data, indent=2))
+        render_json(data)
         return
 
     if output == OutputFormat.csv:
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=list(data.keys()))
-        writer.writeheader()
-        writer.writerow(data)
-        typer.echo(buf.getvalue().rstrip())
+        render_csv([data], fieldnames=list(data.keys()))
         return
 
     # Default: rich table (key-value)
@@ -367,7 +312,7 @@ def create_property(
     ] = OutputFormat.table,
 ) -> None:
     """Create a new GA4 property."""
-    client = _get_client()
+    client = get_client()
 
     prop_obj = admin_types.Property(
         parent=f"accounts/{account_id}",
@@ -396,7 +341,7 @@ def delete_property(
     ] = False,
 ) -> None:
     """Move a GA4 property to trash (soft-delete, recoverable from GA4 UI)."""
-    client = _get_client()
+    client = get_client()
 
     if not force:
         prop = client.get_property(name=f"properties/{property_id}")
@@ -429,7 +374,7 @@ def get_data_retention_settings(
     ] = OutputFormat.table,
 ) -> None:
     """Get data retention settings for a GA4 property."""
-    client = _get_client()
+    client = get_client()
     settings = client.get_data_retention_settings(
         name=f"properties/{property_id}/dataRetentionSettings"
     )
@@ -471,7 +416,7 @@ def patch_property(
         )
         raise typer.Exit(code=1)
 
-    client = _get_client()
+    client = get_client()
 
     prop_obj = admin_types.Property(name=f"properties/{property_id}")
     mask_paths: list[str] = []
@@ -539,7 +484,7 @@ def update_data_retention_settings(
         )
         raise typer.Exit(code=1)
 
-    client = _get_client()
+    client = get_client()
 
     settings = admin_types.DataRetentionSettings(
         name=f"properties/{property_id}/dataRetentionSettings"
