@@ -36,9 +36,8 @@ def _make_mock_metric(pid: str = "123", mid: str = "789") -> MagicMock:
 
 
 def _patch_client(mocker, mock_client: MagicMock) -> None:
-    """Patch get_credentials and build_admin_client in the custom_metrics module."""
-    mocker.patch("gaad.commands.custom_metrics.get_credentials", return_value=MagicMock())
-    mocker.patch("gaad.commands.custom_metrics.build_admin_client", return_value=mock_client)
+    """Patch get_client in gaad.commands.custom_metrics."""
+    mocker.patch("gaad.commands.custom_metrics.get_client", return_value=mock_client)
 
 
 def _setup_config(tmp_config_dir: Path) -> None:
@@ -116,7 +115,7 @@ class TestCustomMetricsList:
 
         _setup_config(tmp_config_dir)
         mocker.patch(
-            "gaad.commands.custom_metrics.get_credentials",
+            "gaad.shared.client.get_credentials",
             side_effect=AuthError("Not authenticated"),
         )
 
@@ -580,7 +579,7 @@ class TestCustomMetricsArchive:
 
         _setup_config(tmp_config_dir)
         mocker.patch(
-            "gaad.commands.custom_metrics.get_credentials",
+            "gaad.shared.client.get_credentials",
             side_effect=AuthError("Not authenticated"),
         )
 

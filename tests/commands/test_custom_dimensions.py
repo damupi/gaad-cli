@@ -34,9 +34,8 @@ def _make_mock_dim(pid: str = "123", did: str = "456") -> MagicMock:
 
 
 def _patch_client(mocker, mock_client: MagicMock) -> None:
-    """Patch get_credentials and build_admin_client in the custom_dimensions module."""
-    mocker.patch("gaad.commands.custom_dimensions.get_credentials", return_value=MagicMock())
-    mocker.patch("gaad.commands.custom_dimensions.build_admin_client", return_value=mock_client)
+    """Patch get_client in gaad.commands.custom_dimensions."""
+    mocker.patch("gaad.commands.custom_dimensions.get_client", return_value=mock_client)
 
 
 def _setup_config(tmp_config_dir: Path) -> None:
@@ -114,7 +113,7 @@ class TestCustomDimensionsList:
 
         _setup_config(tmp_config_dir)
         mocker.patch(
-            "gaad.commands.custom_dimensions.get_credentials",
+            "gaad.shared.client.get_credentials",
             side_effect=AuthError("Not authenticated"),
         )
 
@@ -534,7 +533,7 @@ class TestCustomDimensionsArchive:
 
         _setup_config(tmp_config_dir)
         mocker.patch(
-            "gaad.commands.custom_dimensions.get_credentials",
+            "gaad.shared.client.get_credentials",
             side_effect=AuthError("Not authenticated"),
         )
 

@@ -4,51 +4,25 @@ from __future__ import annotations
 
 import csv
 import io
-import json
-from enum import Enum
 from typing import Annotated, Optional
 
 import typer
 from google.analytics.admin_v1beta import types as admin_types
 from google.protobuf import field_mask_pb2
-from rich.console import Console
 from rich.table import Table
 
-from gaad import config as cfg
-from gaad.auth import build_admin_client, get_credentials
-from gaad.errors import AuthError
-
-console = Console()
-err_console = Console(stderr=True)
+from gaad.shared import (
+    OutputFormat,
+    console,
+    enum_name,
+    err_console,
+    extract_id,
+    get_client,
+    render_csv,
+    render_json,
+)
 
 accounts_app = typer.Typer(name="accounts", help="Account management commands")
-
-
-class OutputFormat(str, Enum):
-    """Supported output formats."""
-
-    table = "table"
-    json = "json"
-    csv = "csv"
-
-
-# ---------------------------------------------------------------------------
-# Shared helper
-# ---------------------------------------------------------------------------
-
-def _get_client():
-    """Load config, authenticate, and return an admin API client.
-
-    Raises:
-        typer.Exit: with code 1 when authentication fails.
-    """
-    config = cfg.load_config()
-    try:
-        creds = get_credentials(config)
-    except AuthError as exc:
-        err_console.print(f"[red]Error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    return build_admin_client(creds)
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +31,7 @@ def _get_client():
 
 def _account_to_dict(account) -> dict:
     """Convert an account resource to a flat dict for JSON/CSV output."""
-    account_id = account.name.split("/")[-1]
+    account_id = extract_id(account.name)
     return {
         "account_id": account_id,
         "display_name": account.display_name,
@@ -80,19 +54,15 @@ _ACCOUNT_FIELDS = [
 
 def _render_account(account, output: OutputFormat) -> None:
     """Render an account resource in the requested format."""
-    account_id = account.name.split("/")[-1]
+    account_id = extract_id(account.name)
     data = _account_to_dict(account)
 
     if output == OutputFormat.json:
-        typer.echo(json.dumps(data, indent=2, default=str))
+        render_json(data)
         return
 
     if output == OutputFormat.csv:
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=_ACCOUNT_FIELDS)
-        writer.writeheader()
-        writer.writerow(data)
-        typer.echo(buf.getvalue().rstrip())
+        render_csv([data], fieldnames=_ACCOUNT_FIELDS)
         return
 
     # Default: rich key/value table
@@ -116,27 +86,23 @@ def list_accounts(
     ] = OutputFormat.table,
 ) -> None:
     """List all GA4 accounts accessible to the authenticated user."""
-    client = _get_client()
+    client = get_client()
     accounts = list(client.list_accounts())
 
     rows: list[dict[str, str]] = [
         {
-            "account_id": acct.name.split("/")[-1],
+            "account_id": extract_id(acct.name),
             "display_name": acct.display_name,
         }
         for acct in accounts
     ]
 
     if output == OutputFormat.json:
-        typer.echo(json.dumps(rows, indent=2))
+        render_json(rows)
         return
 
     if output == OutputFormat.csv:
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=["account_id", "display_name"])
-        writer.writeheader()
-        writer.writerows(rows)
-        typer.echo(buf.getvalue().rstrip())
+        render_csv(rows, fieldnames=["account_id", "display_name"])
         return
 
     # Default: rich table
@@ -160,7 +126,7 @@ def get_account(
     ] = OutputFormat.table,
 ) -> None:
     """Get details for a specific GA4 account."""
-    client = _get_client()
+    client = get_client()
     account = client.get_account(name=f"accounts/{account_id}")
     _render_account(account, output)
 
@@ -177,7 +143,7 @@ def delete_account(
     ] = False,
 ) -> None:
     """Move a GA4 account to trash (recoverable within 30 days)."""
-    client = _get_client()
+    client = get_client()
 
     if not force:
         account = client.get_account(name=f"accounts/{account_id}")
@@ -210,7 +176,7 @@ def get_data_sharing_settings(
     ] = OutputFormat.table,
 ) -> None:
     """Get data sharing settings for a GA4 account."""
-    client = _get_client()
+    client = get_client()
     settings = client.get_data_sharing_settings(
         name=f"accounts/{account_id}/dataSharingSettings"
     )
@@ -229,7 +195,7 @@ def get_data_sharing_settings(
     }
 
     if output == OutputFormat.json:
-        typer.echo(json.dumps(data, indent=2))
+        render_json(data)
         return
 
     if output == OutputFormat.csv:
@@ -271,7 +237,7 @@ def patch_account(
     ] = OutputFormat.table,
 ) -> None:
     """Update a GA4 account's display name and/or region code."""
-    client = _get_client()
+    client = get_client()
 
     account = admin_types.Account(
         name=f"accounts/{account_id}",

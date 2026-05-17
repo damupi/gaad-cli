@@ -218,10 +218,26 @@ class TestBuildAdminClient:
 
         mock_creds = MagicMock()
         with patch(
-            "gaad.auth.AnalyticsAdminServiceClient",
+            "gaad.auth.admin_v1beta.AnalyticsAdminServiceClient",
         ) as mock_cls:
             fake_client = MagicMock()
             mock_cls.return_value = fake_client
             result = build_admin_client(mock_creds)
             assert result is fake_client
             mock_cls.assert_called_once()
+
+    def test_build_admin_client_returns_v1beta_by_default(self) -> None:
+        mock_creds = MagicMock()
+        with patch("gaad.auth.admin_v1beta.AnalyticsAdminServiceClient") as mock_cls:
+            from gaad.auth import build_admin_client
+
+            build_admin_client(mock_creds)
+            mock_cls.assert_called_once_with(credentials=mock_creds)
+
+    def test_build_admin_client_returns_v1alpha_when_specified(self) -> None:
+        mock_creds = MagicMock()
+        with patch("gaad.auth.admin_v1alpha.AnalyticsAdminServiceClient") as mock_cls:
+            from gaad.auth import build_admin_client
+
+            build_admin_client(mock_creds, version="v1alpha")
+            mock_cls.assert_called_once_with(credentials=mock_creds)

@@ -2,54 +2,30 @@
 
 from __future__ import annotations
 
-import csv
-import io
-import json
-from enum import Enum
 from typing import Annotated, Optional
 
 import typer
 from google.analytics.admin_v1beta import types as admin_types
 from google.protobuf import field_mask_pb2
-from rich.console import Console
 from rich.table import Table
 
-from gaad import config as cfg
-from gaad.auth import build_admin_client, get_credentials
-from gaad.errors import AuthError
-
-console = Console()
-err_console = Console(stderr=True)
+from gaad.shared import (
+    OutputFormat,
+    console,
+    enum_name,
+    err_console,
+    extract_id,
+    get_client,
+    render_csv,
+    render_json,
+)
 
 data_streams_app = typer.Typer(name="data-streams", help="Data Streams management commands")
-
-
-class OutputFormat(str, Enum):
-    """Supported output formats."""
-
-    table = "table"
-    json = "json"
-    csv = "csv"
 
 
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
-
-
-def _get_client():
-    """Load config, authenticate, and return an admin API client.
-
-    Raises:
-        typer.Exit: with code 1 when authentication fails.
-    """
-    config = cfg.load_config()
-    try:
-        creds = get_credentials(config)
-    except AuthError as exc:
-        err_console.print(f"[red]Error:[/red] {exc}")
-        raise typer.Exit(code=1) from exc
-    return build_admin_client(creds)
 
 
 def _stream_to_dict(stream) -> dict:
@@ -61,8 +37,8 @@ def _stream_to_dict(stream) -> dict:
     Returns:
         A flat dictionary with all stream fields including type-specific ones.
     """
-    stream_id = stream.name.split("/")[-1]
-    stream_type = stream.type_.name if hasattr(stream.type_, "name") else str(stream.type_)
+    stream_id = extract_id(stream.name)
+    stream_type = enum_name(stream.type_)
 
     data: dict = {
         "stream_id": stream_id,
@@ -98,20 +74,16 @@ def _render_stream(stream, output: OutputFormat) -> None:
         stream: A GA4 DataStream resource object.
         output: The desired output format.
     """
-    stream_id = stream.name.split("/")[-1]
+    stream_id = extract_id(stream.name)
     data = _stream_to_dict(stream)
     fields = list(data.keys())
 
     if output == OutputFormat.json:
-        typer.echo(json.dumps(data, indent=2, default=str))
+        render_json(data)
         return
 
     if output == OutputFormat.csv:
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=fields)
-        writer.writeheader()
-        writer.writerow(data)
-        typer.echo(buf.getvalue().rstrip())
+        render_csv([data], fieldnames=fields)
         return
 
     # Default: rich key/value table
@@ -140,28 +112,24 @@ def list_data_streams(
     ] = OutputFormat.table,
 ) -> None:
     """List all data streams for a GA4 property."""
-    client = _get_client()
+    client = get_client()
     streams = list(client.list_data_streams(parent=f"properties/{property_id}"))
 
     rows: list[dict[str, str]] = [
         {
-            "stream_id": s.name.split("/")[-1],
+            "stream_id": extract_id(s.name),
             "display_name": s.display_name,
-            "type": s.type_.name if hasattr(s.type_, "name") else str(s.type_),
+            "type": enum_name(s.type_),
         }
         for s in streams
     ]
 
     if output == OutputFormat.json:
-        typer.echo(json.dumps(rows, indent=2))
+        render_json(rows)
         return
 
     if output == OutputFormat.csv:
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=["stream_id", "display_name", "type"])
-        writer.writeheader()
-        writer.writerows(rows)
-        typer.echo(buf.getvalue().rstrip())
+        render_csv(rows, fieldnames=["stream_id", "display_name", "type"])
         return
 
     # Default: rich table
@@ -190,7 +158,7 @@ def get_data_stream(
     ] = OutputFormat.table,
 ) -> None:
     """Get details for a specific data stream."""
-    client = _get_client()
+    client = get_client()
     stream = client.get_data_stream(
         name=f"properties/{property_id}/dataStreams/{stream_id}"
     )
@@ -245,7 +213,7 @@ def create_data_stream(
         )
         raise typer.Exit(code=1)
 
-    client = _get_client()
+    client = get_client()
 
     stream = admin_types.DataStream(
         display_name=display_name,
@@ -302,7 +270,7 @@ def patch_data_stream(
         )
         raise typer.Exit(code=1)
 
-    client = _get_client()
+    client = get_client()
 
     stream = admin_types.DataStream(
         name=f"properties/{property_id}/dataStreams/{stream_id}"
@@ -340,7 +308,7 @@ def delete_data_stream(
     ] = False,
 ) -> None:
     """Delete a data stream (permanent — no soft delete for data streams)."""
-    client = _get_client()
+    client = get_client()
 
     if not force:
         stream = client.get_data_stream(

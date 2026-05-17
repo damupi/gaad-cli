@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 import google.auth
 import google.auth.credentials
 import google.auth.transport.requests
 import google.oauth2.credentials
 import google.oauth2.service_account
+from google.analytics import admin_v1alpha, admin_v1beta
 from google.analytics.admin_v1beta import AnalyticsAdminServiceClient
 from google.api_core import gapic_v1
 
@@ -71,16 +72,22 @@ def get_credentials(config: dict) -> google.auth.credentials.Credentials:
     raise AuthError(f"Unknown auth method: {auth_method!r}. Run: gaad auth login")
 
 
-def build_admin_client(credentials: google.auth.credentials.Credentials) -> AnalyticsAdminServiceClient:
+def build_admin_client(
+    credentials: google.auth.credentials.Credentials,
+    version: Literal["v1beta", "v1alpha"] = "v1beta",
+) -> AnalyticsAdminServiceClient:
     """Construct an :class:`AnalyticsAdminServiceClient` from *credentials*.
 
     Args:
         credentials: Valid Google credentials.
+        version: API version to use — ``"v1beta"`` (default) or ``"v1alpha"``.
 
     Returns:
         Configured admin API client.
     """
-    return AnalyticsAdminServiceClient(credentials=credentials)
+    if version == "v1alpha":
+        return admin_v1alpha.AnalyticsAdminServiceClient(credentials=credentials)
+    return admin_v1beta.AnalyticsAdminServiceClient(credentials=credentials)
 
 
 def serialize_oauth2_credentials(creds: google.oauth2.credentials.Credentials) -> dict[str, Any]:
