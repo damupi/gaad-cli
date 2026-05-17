@@ -115,6 +115,38 @@ gaad custom-metrics patch --property-id ID --metric-id ID [--display-name NAME] 
 gaad custom-metrics archive --property-id ID --metric-id ID [--force]
 ```
 
+### Annotations
+
+> Uses GA4 Admin API **v1alpha**. System-generated annotations cannot be patched or deleted.
+
+```bash
+gaad annotations list --property ID
+gaad annotations get ANNOTATION_ID --property ID
+gaad annotations create --property ID --title TITLE --color PURPLE|BROWN|BLUE|GREEN|RED|CYAN \
+  [--description TEXT] \
+  (--date YYYY-MM-DD | --start-date YYYY-MM-DD --end-date YYYY-MM-DD)
+gaad annotations patch ANNOTATION_ID --property ID \
+  [--title TITLE] [--color COLOR] [--description TEXT] \
+  [--date YYYY-MM-DD | --start-date YYYY-MM-DD --end-date YYYY-MM-DD]
+gaad annotations delete ANNOTATION_ID --property ID [--force]
+```
+
+### Channel Groups
+
+> Uses GA4 Admin API **v1alpha**. System-defined channel groups cannot be patched or deleted.
+
+```bash
+gaad channel-groups list --property ID
+gaad channel-groups get CHANNEL_GROUP_ID --property ID
+gaad channel-groups create --property ID --display-name NAME --rules-json JSON \
+  [--description TEXT] [--primary|--no-primary]
+gaad channel-groups patch CHANNEL_GROUP_ID --property ID \
+  [--display-name NAME] [--description TEXT] [--primary|--no-primary] [--rules-json JSON]
+gaad channel-groups delete CHANNEL_GROUP_ID --property ID [--force]
+```
+
+`--rules-json` is a JSON array of grouping rules. Each rule requires a `display_name` and an `expression` following the `and_group → or_group → filter` nesting. Valid `fieldName` values: `eachScopeSource`, `eachScopeMedium`, `eachScopeDefaultChannelGroup`, `eachScopeSourcePlatform`, `eachScopeCampaignId`, `eachScopeCampaignName`. Run `gaad channel-groups create --help` for a full example.
+
 ## Development
 
 ```bash

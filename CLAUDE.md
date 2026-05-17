@@ -11,15 +11,20 @@
 - **Package manager**: uv (`uv pip install`, `uv run pytest`, `uv run gaad`)
 - **Build system**: Hatchling via `pyproject.toml`
 - **Testing**: pytest + pytest-mock + pytest-cov (80% coverage minimum enforced)
-- **GA4 API**: `google.analytics.admin_v1beta` exclusively (no top-level alias, no v1alpha)
+- **GA4 API**: `google.analytics.admin_v1beta` for most commands; `google.analytics.admin_v1alpha` for `annotations` and `channel-groups` (no top-level alias)
 
 ## Key conventions
 
 ### API version
-Always import from `google.analytics.admin_v1beta`, never from `google.analytics.admin`:
+Most commands use `google.analytics.admin_v1beta`. The `annotations` and `channel-groups` commands use `google.analytics.admin_v1alpha` — these APIs are only available in the alpha client. Never use the top-level `google.analytics.admin` alias.
+
 ```python
+# v1beta (accounts, properties, data-streams, key-events, custom-dimensions, custom-metrics)
 from google.analytics.admin_v1beta import types as admin_types
 from google.analytics.admin_v1beta.types import ListPropertiesRequest
+
+# v1alpha (annotations, channel-groups)
+from google.analytics.admin_v1alpha import types as alpha_types
 ```
 
 ### Auth
