@@ -73,3 +73,4 @@ Release Please is configured in `.github/workflows/release-please.yml` and will 
 | `key-events` | `list`, `get`, `create`, `patch`, `delete` |
 | `custom-dimensions` | `list`, `get`, `create`, `patch`, `archive` |
 | `custom-metrics` | `list`, `get`, `create`, `patch`, `archive` |
+| `annotations` | `list`, `get`, `create`, `patch`, `delete` |

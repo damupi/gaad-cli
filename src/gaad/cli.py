@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import typer
 
+from gaad.commands.annotations import annotations_app
 from gaad.commands.auth import auth_app
 from gaad.commands.accounts import accounts_app
 from gaad.commands.custom_dimensions import custom_dimensions_app
@@ -20,6 +21,7 @@ app.add_typer(data_streams_app, name="data-streams")
 app.add_typer(key_events_app, name="key-events")
 app.add_typer(custom_dimensions_app, name="custom-dimensions")
 app.add_typer(custom_metrics_app, name="custom-metrics")
+app.add_typer(annotations_app, name="annotations")
 
 if __name__ == "__main__":
     app()
