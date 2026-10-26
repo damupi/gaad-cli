@@ -1,6 +1,6 @@
 # gaad-cli
 
-A command-line tool for administering Google Analytics 4 (GA4) properties via the [Admin API v1beta](https://developers.google.com/analytics/devguides/config/admin/v1/rest/v1beta).
+A command-line tool for administering Google Analytics 4 (GA4) properties via the Admin API v1beta and v1alpha.
 
 ## Installation
 
@@ -146,6 +146,41 @@ gaad channel-groups delete CHANNEL_GROUP_ID --property ID [--force]
 ```
 
 `--rules-json` is a JSON array of grouping rules. Each rule requires a `display_name` and an `expression` following the `and_group → or_group → filter` nesting. Valid `fieldName` values: `eachScopeSource`, `eachScopeMedium`, `eachScopeDefaultChannelGroup`, `eachScopeSourcePlatform`, `eachScopeCampaignId`, `eachScopeCampaignName`. Run `gaad channel-groups create --help` for a full example.
+
+### BigQuery Links
+
+> Uses GA4 Admin API **v1alpha**. Creating, updating, and deleting links requires the `analytics.edit` scope plus access to the GA4 property and Google Cloud project.
+
+```bash
+gaad bigquery-links list --property-id PROPERTY_ID
+gaad bigquery-links get --property-id PROPERTY_ID --link-id LINK_ID
+
+gaad bigquery-links create --property-id PROPERTY_ID \
+  --project PROJECT_ID_OR_NUMBER \
+  --dataset-location US \
+  [--daily-export/--no-daily-export] \
+  [--streaming-export/--no-streaming-export] \
+  [--fresh-daily-export/--no-fresh-daily-export] \
+  [--include-advertising-id/--no-include-advertising-id] \
+  [--export-stream DATA_STREAM_ID]... \
+  [--exclude-event EVENT_NAME]...
+
+gaad bigquery-links patch --property-id PROPERTY_ID --link-id LINK_ID \
+  [--daily-export/--no-daily-export] \
+  [--streaming-export/--no-streaming-export] \
+  [--fresh-daily-export/--no-fresh-daily-export] \
+  [--include-advertising-id/--no-include-advertising-id] \
+  [--export-stream DATA_STREAM_ID]... [--clear-export-streams] \
+  [--exclude-event EVENT_NAME]... [--clear-excluded-events]
+
+gaad bigquery-links delete --property-id PROPERTY_ID --link-id LINK_ID [--force]
+```
+
+Property IDs may be supplied as `123` or `properties/123`. Link and data-stream options accept either bare IDs or full resource names, and projects accept a project ID, project number, or `projects/...` name. `--property` is also accepted as an alias for `--property-id`.
+
+Create defaults all optional export flags to disabled. On patch, paired negative flags explicitly set booleans to false. Repeated `--export-stream` and `--exclude-event` options replace the complete corresponding list; use `--clear-export-streams` or `--clear-excluded-events` to set a list to empty. `project` and `dataset_location` are immutable after creation.
+
+Use `--output table|json|csv` with `list`, `get`, `create`, and `patch`. JSON repeated fields are arrays; CSV stores them as JSON arrays inside their cells. Deletion is permanent and prompts for confirmation unless `--force` is supplied. Standard GA4 properties generally support only one BigQuery link.
 
 ## Development
 

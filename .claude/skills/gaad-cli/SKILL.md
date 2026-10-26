@@ -1,11 +1,11 @@
 ---
 name: gaad-cli
-description: Administers Google Analytics 4 (GA4) properties via the gaad CLI (GA4 Admin API v1beta). Use when the user asks to list, create, update, or delete GA4 accounts, properties, subproperties, data streams, key events, custom dimensions, or custom metrics. Also use when the user needs to set up gaad auth (service account, OAuth2, or access token), check auth status, or run any gaad command.
+description: Administers Google Analytics 4 (GA4) resources via the gaad CLI (Admin API v1beta and v1alpha). Use when the user asks to list, create, update, or delete GA4 accounts, properties, subproperties, data streams, key events, custom dimensions, custom metrics, annotations, channel groups, or GA4-to-BigQuery links. Also use for gaad authentication and any gaad command. Use a BigQuery/SQL analysis skill instead when the request is to query exported GA4 event data.
 ---
 
 # gaad-cli
 
-GA4 Admin API v1beta CLI. Config stored at `~/.config/gaad-cli/config.json`.
+GA4 Admin API v1beta/v1alpha CLI. Config stored at `~/.config/gaad-cli/config.json`.
 
 ## Auth check (always first)
 
@@ -150,6 +150,50 @@ gaad custom-metrics archive --property-id ID --metric-id ID [--force]
 ```
 
 `--restricted-metric-type` is only valid when `--measurement-unit CURRENCY`.
+
+---
+
+## BigQuery Links
+
+Use this command group to administer the **GA4-to-BigQuery configuration link**. It does not query or analyse the exported BigQuery event tables; use a BigQuery/GA4 SQL skill for that.
+
+The resource uses Admin API **v1alpha**. Write operations require the `analytics.edit` scope and sufficient access to both the GA4 property and Google Cloud project.
+
+```bash
+gaad bigquery-links list --property-id PROPERTY_ID
+gaad bigquery-links get --property-id PROPERTY_ID --link-id LINK_ID
+
+gaad bigquery-links create --property-id PROPERTY_ID \
+  --project PROJECT_ID_OR_NUMBER \
+  --dataset-location US \
+  [--daily-export/--no-daily-export] \
+  [--streaming-export/--no-streaming-export] \
+  [--fresh-daily-export/--no-fresh-daily-export] \
+  [--include-advertising-id/--no-include-advertising-id] \
+  [--export-stream DATA_STREAM_ID]... \
+  [--exclude-event EVENT_NAME]...
+
+gaad bigquery-links patch --property-id PROPERTY_ID --link-id LINK_ID \
+  [--daily-export/--no-daily-export] \
+  [--streaming-export/--no-streaming-export] \
+  [--fresh-daily-export/--no-fresh-daily-export] \
+  [--include-advertising-id/--no-include-advertising-id] \
+  [--export-stream DATA_STREAM_ID]... [--clear-export-streams] \
+  [--exclude-event EVENT_NAME]... [--clear-excluded-events]
+
+gaad bigquery-links delete --property-id PROPERTY_ID --link-id LINK_ID [--force]
+```
+
+Identifier forms:
+
+- Property: `123` or `properties/123` (`--property` is an alias for `--property-id`).
+- Link: bare link ID or `properties/123/bigQueryLinks/LINK_ID`.
+- Project: project ID, project number, or `projects/PROJECT`.
+- Export stream: bare stream ID or `properties/123/dataStreams/STREAM_ID`.
+
+Create defaults optional booleans to false. On patch, negative flags explicitly set a value to false. Repeated stream/event options replace the full list; use the corresponding `--clear-*` option for an empty list. `project` and `dataset_location` are immutable. Deletion is permanent and requires confirmation unless `--force` is used. Standard properties generally allow one BigQuery link.
+
+Use `--output table|json|csv` on `list`, `get`, `create`, and `patch`.
 
 ---
 
