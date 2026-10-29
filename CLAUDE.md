@@ -11,19 +11,19 @@
 - **Package manager**: uv (`uv pip install`, `uv run pytest`, `uv run gaad`)
 - **Build system**: Hatchling via `pyproject.toml`
 - **Testing**: pytest + pytest-mock + pytest-cov (80% coverage minimum enforced)
-- **GA4 API**: `google.analytics.admin_v1beta` for most commands; `google.analytics.admin_v1alpha` for `annotations` and `channel-groups` (no top-level alias)
+- **GA4 API**: `google.analytics.admin_v1beta` for most commands; `google.analytics.admin_v1alpha` for `annotations`, `channel-groups`, and `bigquery-links` (no top-level alias)
 
 ## Key conventions
 
 ### API version
-Most commands use `google.analytics.admin_v1beta`. The `annotations` and `channel-groups` commands use `google.analytics.admin_v1alpha` — these APIs are only available in the alpha client. Never use the top-level `google.analytics.admin` alias.
+Most commands use `google.analytics.admin_v1beta`. The `annotations`, `channel-groups`, and `bigquery-links` commands use `google.analytics.admin_v1alpha` — these APIs are only available in the alpha client. Never use the top-level `google.analytics.admin` alias.
 
 ```python
 # v1beta (accounts, properties, data-streams, key-events, custom-dimensions, custom-metrics)
 from google.analytics.admin_v1beta import types as admin_types
 from google.analytics.admin_v1beta.types import ListPropertiesRequest
 
-# v1alpha (annotations, channel-groups)
+# v1alpha (annotations, channel-groups, bigquery-links)
 from google.analytics.admin_v1alpha import types as alpha_types
 ```
 
@@ -34,7 +34,7 @@ Three auth methods: `service-account`, `oauth2`, `token`. See `src/gaad/auth.py`
 
 ### Command structure
 Each command group lives in its own file under `src/gaad/commands/`. Every file follows this pattern:
-1. `_get_client()` — loads config, authenticates, returns admin client
+1. Import shared `get_client()` from `gaad.shared`; pass `"v1alpha"` for alpha-only resources
 2. `_*_to_dict(obj)` — converts API response to flat dict (for JSON/CSV)
 3. `_render_*(obj, output)` — renders in table/json/csv
 4. Command functions decorated with `@*_app.command("name")`
@@ -55,7 +55,7 @@ For every new command group:
 2. Implement until tests pass (green)
 3. Run `uv run pytest -q` — full suite must stay ≥80% coverage
 
-Test patches target `gaad.commands.<module>.get_credentials` and `gaad.commands.<module>.build_admin_client`. Use `tmp_config_dir` fixture (sets `GAAD_CONFIG_DIR`) for config isolation.
+Tests patch `gaad.commands.<module>.get_client` for command-level API assertions. Authentication failure tests may patch `gaad.shared.client.get_credentials`. Use the `tmp_config_dir` fixture (sets `GAAD_CONFIG_DIR`) for config isolation.
 
 ## Git / versioning
 
@@ -80,6 +80,7 @@ Release Please is configured in `.github/workflows/release-please.yml` and will 
 | `custom-metrics` | `list`, `get`, `create`, `patch`, `archive` |
 | `annotations` | `list`, `get`, `create`, `patch`, `delete` |
 | `channel-groups` | `list`, `get`, `create`, `patch`, `delete` |
+| `bigquery-links` | `list`, `get`, `create`, `patch`, `delete` |
 
 ## Implementation notes
 
