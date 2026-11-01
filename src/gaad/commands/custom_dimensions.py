@@ -290,11 +290,14 @@ def archive_custom_dimension(
 ) -> None:
     """Archive a custom dimension (soft-removes it from reports)."""
     client = get_client()
+    name = f"properties/{property_id}/customDimensions/{dimension_id}"
+
+    # Read the dimension before archiving: GA4 excludes archived dimensions from
+    # get (404), so its details for the prompt and the success message must be
+    # fetched while it is still active.
+    dim = client.get_custom_dimension(name=name)
 
     if not force:
-        dim = client.get_custom_dimension(
-            name=f"properties/{property_id}/customDimensions/{dimension_id}"
-        )
         display_name = dim.display_name
         try:
             typer.confirm(
@@ -306,15 +309,7 @@ def archive_custom_dimension(
             typer.echo("Aborted.")
             raise typer.Exit(0)
 
-    client.archive_custom_dimension(
-        name=f"properties/{property_id}/customDimensions/{dimension_id}"
-    )
-
-    # Fetch parameter_name for the success message (or reuse if already fetched)
-    if force:
-        dim = client.get_custom_dimension(
-            name=f"properties/{property_id}/customDimensions/{dimension_id}"
-        )
+    client.archive_custom_dimension(name=name)
 
     typer.echo(
         f"Custom dimension '{dim.parameter_name}' ({dimension_id}) archived."
