@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0](https://github.com/damupi/gaad-cli/compare/v0.1.0...v0.2.0) (2026-11-01)
+
+
+### Features
+
+* add --version and ship the skill and agent with an install prompt ([#12](https://github.com/damupi/gaad-cli/issues/12)) ([f868d31](https://github.com/damupi/gaad-cli/commit/f868d31433684f88b8f9dead603de73ae7765945))
+* notify when a newer gaad release is available ([#14](https://github.com/damupi/gaad-cli/issues/14)) ([6e18e1f](https://github.com/damupi/gaad-cli/commit/6e18e1fc3347c14dfd9e3f424933d5154e5151b3))
+
 ## 0.1.0 (2026-11-01)
 
 
