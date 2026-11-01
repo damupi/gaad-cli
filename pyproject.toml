@@ -19,12 +19,11 @@ dependencies = [
 [project.scripts]
 gaad = "gaad.cli:app"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
   "pytest>=8",
   "pytest-mock>=3",
   "pytest-cov>=5",
-  "typer[all]>=0.12",
 ]
 
 [tool.hatch.build.targets.wheel]

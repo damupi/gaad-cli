@@ -8,7 +8,7 @@
 
 - **CLI framework**: Typer (type-hint driven, built on Click)
 - **Output formatting**: Rich (tables, colours)
-- **Package manager**: uv (`uv pip install`, `uv run pytest`, `uv run gaad`)
+- **Package manager**: uv (`uv sync`, `uv run pytest`, `uv run gaad`). Dependencies are locked in `uv.lock`; dev dependencies live in the `dev` dependency group
 - **Build system**: Hatchling via `pyproject.toml`
 - **Testing**: pytest + pytest-mock + pytest-cov (80% coverage minimum enforced)
 - **GA4 API**: `google.analytics.admin_v1beta` for most commands; `google.analytics.admin_v1alpha` for `annotations`, `channel-groups`, and `bigquery-links` (no top-level alias)
@@ -54,6 +54,8 @@ For every new command group:
 1. Write all tests first (red)
 2. Implement until tests pass (green)
 3. Run `uv run pytest -q` — full suite must stay ≥80% coverage
+
+Change dependencies only with `uv add` / `uv add --group dev` / `uv lock --upgrade-package <pkg>` so `pyproject.toml` and `uv.lock` stay in sync, and commit both. Dependency upgrades go in their own PR with the full test suite passing. CI (`.github/workflows/tests.yml`) runs `uv run --locked pytest`, so a stale lock fails the build.
 
 Tests patch `gaad.commands.<module>.get_client` for command-level API assertions. Authentication failure tests may patch `gaad.shared.client.get_credentials`. Use the `tmp_config_dir` fixture (sets `GAAD_CONFIG_DIR`) for config isolation.
 
