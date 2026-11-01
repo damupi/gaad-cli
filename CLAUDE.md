@@ -45,6 +45,8 @@ All list/get/create/patch commands support `--output table|json|csv` (default: `
 ### Destructive operations
 `delete` and `archive` commands require `--force` to skip confirmation. Without it, they fetch the resource name first and prompt before acting.
 
+`archive` commands always fetch the resource **before** archiving, also with `--force`: GA4 excludes archived custom dimensions and metrics from `get` (it returns 404), so anything needed for the prompt or the success message must be read while the resource is still active. Never call `get_*` on a resource after archiving it.
+
 ### Field masks (patch/update)
 Always use `google.protobuf.field_mask_pb2.FieldMask(paths=[...])`. Only include paths for fields explicitly provided by the user.
 

@@ -346,11 +346,14 @@ def archive_custom_metric(
 ) -> None:
     """Archive a custom metric (soft-removes it from reports)."""
     client = get_client()
+    name = f"properties/{property_id}/customMetrics/{metric_id}"
+
+    # Read the metric before archiving: GA4 excludes archived metrics from
+    # get (404), so its details for the prompt and the success message must be
+    # fetched while it is still active.
+    metric = client.get_custom_metric(name=name)
 
     if not force:
-        metric = client.get_custom_metric(
-            name=f"properties/{property_id}/customMetrics/{metric_id}"
-        )
         display_name = metric.display_name
         try:
             typer.confirm(
@@ -362,15 +365,7 @@ def archive_custom_metric(
             typer.echo("Aborted.")
             raise typer.Exit(0)
 
-    client.archive_custom_metric(
-        name=f"properties/{property_id}/customMetrics/{metric_id}"
-    )
-
-    # Fetch parameter_name for the success message (or reuse if already fetched)
-    if force:
-        metric = client.get_custom_metric(
-            name=f"properties/{property_id}/customMetrics/{metric_id}"
-        )
+    client.archive_custom_metric(name=name)
 
     typer.echo(
         f"Custom metric '{metric.parameter_name}' ({metric_id}) archived."
