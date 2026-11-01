@@ -40,7 +40,7 @@ class TestGetClient:
                 assert result is mock_client
 
     def test_auth_error_causes_exit(self, tmp_config_dir):
-        import click
+        import typer
 
         from gaad import config as cfg
 
@@ -48,5 +48,5 @@ class TestGetClient:
         with patch("gaad.shared.client.get_credentials", side_effect=AuthError("not authed")):
             from gaad.shared.client import get_client
 
-            with pytest.raises((SystemExit, click.exceptions.Exit)):
+            with pytest.raises((SystemExit, typer.Exit)):
                 get_client()
