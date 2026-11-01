@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from importlib import metadata
+from typing import Annotated
+
 import typer
 
 from gaad.commands.annotations import annotations_app
@@ -16,6 +19,33 @@ from gaad.commands.key_events import key_events_app
 from gaad.commands.properties import properties_app
 
 app = typer.Typer(name="gaad", help="Google Analytics 4 Admin CLI")
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        try:
+            version = metadata.version("gaad-cli")
+        except metadata.PackageNotFoundError:
+            version = "unknown (not installed as a package)"
+        typer.echo(f"gaad {version}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            callback=_version_callback,
+            is_eager=True,
+            help="Show the installed version and exit.",
+        ),
+    ] = False,
+) -> None:
+    """Google Analytics 4 Admin CLI"""
+
+
 app.add_typer(auth_app, name="auth")
 app.add_typer(accounts_app, name="accounts")
 app.add_typer(properties_app, name="properties")
