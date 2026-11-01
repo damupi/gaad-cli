@@ -74,7 +74,7 @@ def login(
             shutil.copy2(source, dest)
         cfg.set("auth_method", "service-account")
         cfg.set("key_file", str(dest))
-        console.print(f"[green]Service account key stored:[/green] {dest}")
+        console.print(f"[green]Service account key stored:[/green] {dest}", soft_wrap=True)
 
     elif method == AuthMethod.token:
         if not token:
@@ -105,7 +105,7 @@ def login(
         cfg.set("auth_method", "oauth2")
         cfg.set("oauth2_credentials", serialized)
         cfg.set("oauth2_client_secret_file", str(dest_secret))
-        console.print(f"[green]OAuth2 credentials stored.[/green] Client secret: {dest_secret}")
+        console.print(f"[green]OAuth2 credentials stored.[/green] Client secret: {dest_secret}", soft_wrap=True)
 
 
 @auth_app.command("status")
@@ -122,7 +122,7 @@ def status() -> None:
 
     if auth_method == "service-account":
         key_path = config.get("key_file", "<unknown>")
-        console.print(f"Key file: {key_path}")
+        console.print(f"Key file: {key_path}", soft_wrap=True)
 
     elif auth_method == "token":
         raw_token: str = config.get("access_token", "")
