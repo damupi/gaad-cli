@@ -91,7 +91,7 @@ Uses [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore:` maintenance
 - `docs:` documentation only
 
-Release Please runs from `.github/workflows/release-please.yml` with its settings in `release-please-config.json` and `.release-please-manifest.json`. On every push to `main` it opens or updates a release PR that bumps `pyproject.toml`, the manifest and `skills/gaad-cli/compatibility.json` and updates `CHANGELOG.md`; merging it creates the `vX.Y.Z` tag and GitHub release. Do not edit versions, the manifest or `CHANGELOG.md` by hand (except fixing published entries in a `chore:` commit).
+Release Please runs from `.github/workflows/release-please.yml` with its settings in `release-please-config.json` and `.release-please-manifest.json`. On every push to `main` it opens or updates a release PR that bumps `pyproject.toml`, the manifest, `skills/gaad-cli/compatibility.json` and the `gaad-cli` entry in `uv.lock` (so `uv run --locked` keeps passing) and updates `CHANGELOG.md`; merging it creates the `vX.Y.Z` tag and GitHub release. Do not edit versions, the manifest or `CHANGELOG.md` by hand (except fixing published entries in a `chore:` commit).
 
 Always **squash-merge** PRs: the PR title becomes the commit message, so it must be a Conventional Commit. release-please also reads merge commits and conventional lines in commit bodies, which duplicate CHANGELOG entries.
 
