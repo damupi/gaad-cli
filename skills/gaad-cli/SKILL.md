@@ -236,10 +236,14 @@ Use `--output table|json|csv` on `list`, `get`, `create`, and `patch`.
 
 ---
 
-## Version
+## Version and updates
 
 ```bash
-gaad --version
+gaad version          # installed version, latest release, upgrade command
+gaad version --json
+gaad --version        # installed version only
 ```
 
-This skill was reviewed for the gaad version in `cli_version` of its `compatibility.json`. If that differs from the version `gaad --version` prints, tell the user the skill may be outdated and suggest updating it with the "Agent skill and agent" prompt in the gaad-cli README.
+`gaad` prints a new-release notice on stderr only in interactive terminals, so agents normally do not see it; run `gaad version` to check. When an update is available, report the version and the suggested upgrade command to the user. Do not run the upgrade without explicit approval.
+
+This skill was reviewed for the gaad version in `cli_version` of its `compatibility.json`. If that differs from `installed` in `gaad version --json` (or `gaad --version`), tell the user the skill may be outdated and suggest updating it with the "Agent skill and agent" prompt in the gaad-cli README.

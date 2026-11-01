@@ -61,6 +61,14 @@ Change dependencies only with `uv add` / `uv add --group dev` / `uv lock --upgra
 
 Tests patch `gaad.commands.<module>.get_client` for command-level API assertions. Authentication failure tests may patch `gaad.shared.client.get_credentials`. Use the `tmp_config_dir` fixture (sets `GAAD_CONFIG_DIR`) for config isolation.
 
+## Update check (`src/gaad/update.py`)
+
+- Latest release = highest `vX.Y.Z` tag from `git ls-remote --tags --refs https://github.com/damupi/gaad-cli.git 'v*'` (public repo, `GIT_TERMINAL_PROMPT=0`, 5 s timeout).
+- The root callback in `cli.py` registers `ctx.call_on_close`, which prints `pending_notice()` on stderr after the command; it is skipped for `gaad version`, which runs a fresh check itself.
+- `pending_notice()` never raises and only runs when stderr is a TTY, `CI` is unset and `GAAD_NO_UPDATE_CHECK` is unset. Results (including failed checks) are cached for 24 h in `update-check.json` next to `config.json`, so `GAAD_CONFIG_DIR` applies.
+- The upgrade command depends on the install kind: editable (`direct_url.json` with `dir_info.editable`) → `git -C <checkout> pull`; `uv tool` (`uv-receipt.toml` in `sys.prefix`) → `uv tool install --force git+https://…@vX.Y.Z`; otherwise `pip install --upgrade "git+https://…@vX.Y.Z"`.
+- Tests never hit the network: CliRunner's stderr is not a TTY, and `tests/test_update.py` mocks `subprocess.run`.
+
 ## Agent skill and agent
 
 ```
@@ -92,6 +100,7 @@ Always **squash-merge** PRs: the PR title becomes the commit message, so it must
 | Group | Methods |
 |---|---|
 | `auth` | `login`, `status`, `logout` |
+| `version` | installed version, latest release, upgrade command (`--json`); also `gaad --version` |
 | `accounts` | `list`, `get`, `get-data-sharing-settings`, `patch`, `delete` |
 | `properties` | `list`, `get`, `create`, `patch`, `delete`, `get-data-retention-settings`, `update-data-retention-settings` |
 | `data-streams` | `list`, `get`, `create`, `patch`, `delete` |

@@ -24,6 +24,27 @@ cd gaad-cli
 uv sync          # .venv with runtime + dev dependencies (dev dependency group)
 ```
 
+## Updates
+
+Once a day, `gaad` checks GitHub for a newer release (`vX.Y.Z` tag) and prints a notice on stderr after the command, for example:
+
+```text
+A new release of gaad is available: 0.2.0 → 0.3.0
+To upgrade, run: uv tool install --force git+https://github.com/damupi/gaad-cli@v0.3.0
+Release notes: https://github.com/damupi/gaad-cli/releases/tag/v0.3.0
+```
+
+- The suggested command matches how `gaad` is installed: `uv tool install --force …`, `pip install --upgrade "…"`, or `git -C <checkout> pull` for an editable install.
+- The check runs `git ls-remote` over HTTPS against this public repository. It never prompts and fails silently when offline.
+- It only runs in interactive terminals: not when stderr is redirected (agents, scripts, `--output json` pipelines) and not when `CI` is set. The result is cached for 24 h in `update-check.json` next to the config file (respects `GAAD_CONFIG_DIR`).
+- Disable it with `GAAD_NO_UPDATE_CHECK=1`.
+
+```bash
+gaad version          # installed version, latest release, and upgrade command
+gaad version --json   # machine-readable
+gaad --version        # installed version only
+```
+
 ## Authentication
 
 ### Service Account (recommended for automation)
