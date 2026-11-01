@@ -37,7 +37,6 @@ coverage.xml
 .pytype/
 
 # Package managers
-uv.lock
 pip-log.txt
 pip-delete-this-directory.txt
 

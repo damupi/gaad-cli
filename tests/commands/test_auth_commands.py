@@ -186,6 +186,25 @@ class TestAuthStatus:
         assert "service-account" in result.output
         assert "service_account.json" in result.output
 
+    def test_status_does_not_wrap_long_key_file_path(self, tmp_config_dir: Path, monkeypatch) -> None:
+        """A narrow terminal (CI defaults to 80 columns) must not split the path."""
+        from gaad import config as cfg
+        from gaad.commands import auth as auth_cmd
+
+        key_file = str(tmp_config_dir / ("nested-directory/" * 6) / "service_account.json")
+        cfg.set("auth_method", "service-account")
+        cfg.set("key_file", key_file)
+        monkeypatch.setattr(auth_cmd.console, "_width", 40)
+
+        with patch("gaad.commands.auth.get_credentials") as mock_get_creds:
+            with patch("gaad.commands.auth.build_admin_client") as mock_build:
+                mock_build.return_value.list_accounts.return_value = []
+                mock_get_creds.return_value = MagicMock()
+                result = runner.invoke(app, ["auth", "status"])
+
+        assert result.exit_code == 0
+        assert f"Key file: {key_file}\n" in result.output
+
     def test_status_shows_connected_on_successful_api_call(self, tmp_config_dir: Path) -> None:
         from gaad import config as cfg
 

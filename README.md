@@ -6,11 +6,18 @@ A command-line tool for administering Google Analytics 4 (GA4) properties via th
 
 Requires Python 3.11+ and [uv](https://github.com/astral-sh/uv).
 
+Install the CLI as a standalone tool:
+
 ```bash
-git clone https://github.com/davidmuleropino/gaad-cli.git
+uv tool install git+https://github.com/damupi/gaad-cli
+```
+
+For development, clone the repository and create the environment from `uv.lock`:
+
+```bash
+git clone https://github.com/damupi/gaad-cli.git
 cd gaad-cli
-uv venv
-uv pip install -e ".[dev]"
+uv sync          # .venv with runtime + dev dependencies (dev dependency group)
 ```
 
 ## Authentication
@@ -184,6 +191,8 @@ Use `--output table|json|csv` with `list`, `get`, `create`, and `patch`. JSON re
 
 ## Development
 
+Dependencies are locked in `uv.lock`. `uv sync` and `uv run` use it; CI runs `uv run --locked pytest`.
+
 ```bash
 # Run tests
 uv run pytest
@@ -193,6 +202,11 @@ uv run pytest tests/commands/test_accounts.py -v
 
 # Run the CLI locally
 uv run gaad --help
+
+# Add or upgrade dependencies (updates pyproject.toml and uv.lock; commit both)
+uv add <package>
+uv add --group dev <package>
+uv lock --upgrade-package <package>   # or: uv lock --upgrade
 ```
 
 ## Versioning
