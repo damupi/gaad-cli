@@ -528,6 +528,60 @@ class TestCustomDimensionsArchive:
         assert result.exit_code == 0, result.output
         mock_client.archive_custom_dimension.assert_not_called()
 
+    def _mock_ga4_archive(self, mock_client: MagicMock) -> None:
+        """Mimic GA4: get works while the dimension is active and 404s once archived."""
+        from google.api_core.exceptions import NotFound
+
+        state = {"archived": False}
+
+        def get(name):
+            if state["archived"]:
+                raise NotFound("archived resources are excluded from get")
+            return _make_mock_dim()
+
+        def archive(name):
+            state["archived"] = True
+
+        mock_client.get_custom_dimension.side_effect = get
+        mock_client.archive_custom_dimension.side_effect = archive
+
+    def test_archive_force_succeeds_when_archived_dimension_is_not_gettable(
+        self, tmp_config_dir: Path, mocker
+    ) -> None:
+        """Regression for #6: no get after archiving, so no 404 traceback."""
+        _setup_config(tmp_config_dir)
+        mock_client = MagicMock()
+        self._mock_ga4_archive(mock_client)
+        _patch_client(mocker, mock_client)
+
+        result = runner.invoke(
+            app,
+            ["custom-dimensions", "archive", "--property-id", "123", "--dimension-id", "456", "--force"],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "'my_param' (456) archived." in result.output
+        mock_client.get_custom_dimension.assert_called_once_with(name="properties/123/customDimensions/456")
+        mock_client.archive_custom_dimension.assert_called_once_with(name="properties/123/customDimensions/456")
+
+    def test_archive_confirmed_succeeds_when_archived_dimension_is_not_gettable(
+        self, tmp_config_dir: Path, mocker
+    ) -> None:
+        _setup_config(tmp_config_dir)
+        mock_client = MagicMock()
+        self._mock_ga4_archive(mock_client)
+        _patch_client(mocker, mock_client)
+
+        result = runner.invoke(
+            app,
+            ["custom-dimensions", "archive", "--property-id", "123", "--dimension-id", "456"],
+            input="y\n",
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "'my_param' (456) archived." in result.output
+        mock_client.get_custom_dimension.assert_called_once_with(name="properties/123/customDimensions/456")
+
     def test_archive_auth_error_exits_nonzero(self, tmp_config_dir: Path, mocker) -> None:
         from gaad.errors import AuthError
 
