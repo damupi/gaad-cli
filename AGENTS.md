@@ -1,4 +1,4 @@
-# CLAUDE.md — gaad-cli
+# AGENTS.md — gaad-cli
 
 ## Project overview
 
@@ -61,6 +61,20 @@ Change dependencies only with `uv add` / `uv add --group dev` / `uv lock --upgra
 
 Tests patch `gaad.commands.<module>.get_client` for command-level API assertions. Authentication failure tests may patch `gaad.shared.client.get_credentials`. Use the `tmp_config_dir` fixture (sets `GAAD_CONFIG_DIR`) for config isolation.
 
+## Agent skill and agent
+
+```
+skills/gaad-cli/                 # Agent skill: SKILL.md + compatibility.json
+agents/google-analytics-admin.md # GA4 admin subagent (Claude Code frontmatter)
+```
+
+They are product artifacts for users of `gaad`, not configuration for working on this repository, so they live at the top level (not in `.claude/`). Users install them with the agent-agnostic prompt in README.md ("Agent skill and agent"), which must never hard-code an agent's skills or agents path.
+
+- **Keep the skill accurate.** When a change to `src/gaad/` affects commands, options, output or behavior, update `skills/gaad-cli/SKILL.md` in the same PR. The skill must describe the CLI truthfully, including limitations and safety rules.
+- **No command reference in the agent.** `agents/google-analytics-admin.md` covers role, workflow, rules, hierarchy, UI links, output format and boundaries; command syntax lives only in the skill.
+- **Keep both generic.** No personal names, IDs or organisation-specific values; reference other agents generically (the reporting agent points to github.com/damupi/gafour).
+- `skills/gaad-cli/compatibility.json` holds `cli_version`; release-please bumps it with each release (`extra-files`). Do not edit it by hand.
+
 ## Git / versioning
 
 Uses [Conventional Commits](https://www.conventionalcommits.org/):
@@ -69,7 +83,9 @@ Uses [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore:` maintenance
 - `docs:` documentation only
 
-Release Please is configured in `.github/workflows/release-please.yml` and will auto-create CHANGELOG entries and GitHub releases on merge to `main`.
+Release Please runs from `.github/workflows/release-please.yml` with its settings in `release-please-config.json` and `.release-please-manifest.json`. On every push to `main` it opens or updates a release PR that bumps `pyproject.toml`, the manifest and `skills/gaad-cli/compatibility.json` and updates `CHANGELOG.md`; merging it creates the `vX.Y.Z` tag and GitHub release. Do not edit versions, the manifest or `CHANGELOG.md` by hand (except fixing published entries in a `chore:` commit).
+
+Always **squash-merge** PRs: the PR title becomes the commit message, so it must be a Conventional Commit. release-please also reads merge commits and conventional lines in commit bodies, which duplicate CHANGELOG entries.
 
 ## Commands available (Phase 1)
 
