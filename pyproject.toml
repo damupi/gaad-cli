@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gaad-cli"
-version = "0.1.0"
+version = "0.2.0"
 description = "Google Analytics 4 Admin CLI"
 requires-python = ">=3.11"
 dependencies = [
