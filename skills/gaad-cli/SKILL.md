@@ -5,7 +5,7 @@ description: Administers Google Analytics 4 (GA4) resources via the gaad CLI (Ad
 
 # gaad-cli
 
-GA4 Admin API v1beta/v1alpha CLI. Config stored at `~/.config/gaad-cli/config.json`.
+GA4 Admin API v1beta/v1alpha CLI. Config stored at `~/.config/gaad-cli/config.json` (override the directory with `GAAD_CONFIG_DIR`). Every command documents itself with `--help`; treat it as the source of truth for syntax.
 
 ## Auth check (always first)
 
@@ -29,11 +29,14 @@ gaad auth login --method token --token YOUR_TOKEN
 gaad auth logout
 ```
 
-## Global flags
+## Common options
 
-`--output table|json|csv` (default: `table`) — applies to all commands.
+- `--output table|json|csv` (`-o`, default `table`) on `list`, `get`, `create` and `patch` commands. Prefer `--output json` when you parse the result.
+- `--force` on `delete` and `archive` skips the confirmation prompt. Without it, the command shows the resource and asks first. Only use `--force` after the user approved that exact change.
 
-`--force` — skip confirmation prompts on destructive operations.
+## Safety
+
+Read commands are safe. Before any create, patch, delete or archive, show the target (account/property/resource IDs) and the exact change, and get approval. Deleting accounts, properties, data streams, key events, annotations, channel groups and BigQuery links is permanent.
 
 ---
 
@@ -118,7 +121,7 @@ gaad key-events delete --property-id ID --key-event-id ID [--force]
 
 ## Custom Dimensions
 
-> **archive** (not delete) — soft removal, data is preserved.
+> Custom definitions are **archived**, not deleted. Archiving keeps historical data but **cannot be undone**: an archived definition cannot be restored, only recreated with the same parameter name.
 
 ```bash
 gaad custom-dimensions list --property-id ID
@@ -135,7 +138,7 @@ gaad custom-dimensions archive --property-id ID --dimension-id ID [--force]
 
 ## Custom Metrics
 
-> **archive** (not delete) — soft removal, data is preserved.
+> Custom definitions are **archived**, not deleted. Archiving keeps historical data but **cannot be undone**: an archived definition cannot be restored, only recreated with the same parameter name.
 
 ```bash
 gaad custom-metrics list --property-id ID
@@ -150,6 +153,42 @@ gaad custom-metrics archive --property-id ID --metric-id ID [--force]
 ```
 
 `--restricted-metric-type` is only valid when `--measurement-unit CURRENCY`.
+
+---
+
+## Annotations
+
+Reporting data annotations (Admin API **v1alpha**). These commands take `--property` and a positional annotation ID. System-generated annotations cannot be patched or deleted.
+
+```bash
+gaad annotations list --property ID
+gaad annotations get ANNOTATION_ID --property ID
+gaad annotations create --property ID --title TITLE --color PURPLE|BROWN|BLUE|GREEN|RED|CYAN \
+  [--description TEXT] \
+  (--date YYYY-MM-DD | --start-date YYYY-MM-DD --end-date YYYY-MM-DD)
+gaad annotations patch ANNOTATION_ID --property ID \
+  [--title TITLE] [--color COLOR] [--description TEXT] \
+  [--date YYYY-MM-DD | --start-date YYYY-MM-DD --end-date YYYY-MM-DD]
+gaad annotations delete ANNOTATION_ID --property ID [--force]
+```
+
+---
+
+## Channel Groups
+
+Custom channel groups (Admin API **v1alpha**). These commands take `--property` and a positional channel group ID. System-defined channel groups cannot be patched or deleted.
+
+```bash
+gaad channel-groups list --property ID
+gaad channel-groups get CHANNEL_GROUP_ID --property ID
+gaad channel-groups create --property ID --display-name NAME --rules-json JSON \
+  [--description TEXT] [--primary|--no-primary]
+gaad channel-groups patch CHANNEL_GROUP_ID --property ID \
+  [--display-name NAME] [--description TEXT] [--primary|--no-primary] [--rules-json JSON]
+gaad channel-groups delete CHANNEL_GROUP_ID --property ID [--force]
+```
+
+`--rules-json` is a JSON array of grouping rules; on `patch` it replaces all existing rules. Each rule needs a `display_name` and an `expression` nested as `and_group → or_group → filter`. Valid `fieldName` values: `eachScopeSource`, `eachScopeMedium`, `eachScopeDefaultChannelGroup`, `eachScopeSourcePlatform`, `eachScopeCampaignId`, `eachScopeCampaignName`. `gaad channel-groups create --help` shows a full example.
 
 ---
 
@@ -197,9 +236,10 @@ Use `--output table|json|csv` on `list`, `get`, `create`, and `patch`.
 
 ---
 
-## Development
+## Version
 
 ```bash
-uv run pytest          # run test suite
-uv run gaad --help     # run CLI locally
+gaad --version
 ```
+
+This skill was reviewed for the gaad version in `cli_version` of its `compatibility.json`. If that differs from the version `gaad --version` prints, tell the user the skill may be outdated and suggest updating it with the "Agent skill and agent" prompt in the gaad-cli README.

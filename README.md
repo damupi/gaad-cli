@@ -6,11 +6,15 @@ A command-line tool for administering Google Analytics 4 (GA4) properties via th
 
 Requires Python 3.11+ and [uv](https://github.com/astral-sh/uv).
 
-Install the CLI as a standalone tool:
+Install a release as a standalone tool (recommended). Pick a `vX.Y.Z` tag from the [releases](https://github.com/damupi/gaad-cli/releases):
 
 ```bash
-uv tool install git+https://github.com/damupi/gaad-cli
+uv tool install git+https://github.com/damupi/gaad-cli@vX.Y.Z
+uv tool install --force git+https://github.com/damupi/gaad-cli@vX.Y.Z   # upgrade
+gaad --version
 ```
+
+To track the latest `main` instead of a release, omit `@vX.Y.Z`.
 
 For development, clone the repository and create the environment from `uv.lock`:
 
@@ -189,6 +193,52 @@ Create defaults all optional export flags to disabled. On patch, paired negative
 
 Use `--output table|json|csv` with `list`, `get`, `create`, and `patch`. JSON repeated fields are arrays; CSV stores them as JSON arrays inside their cells. Deletion is permanent and prompts for confirmation unless `--force` is supplied. Standard GA4 properties generally support only one BigQuery link.
 
+## Agent skill and agent
+
+The repository ships two things for coding agents:
+
+- `skills/gaad-cli/` — a skill (`SKILL.md`, `compatibility.json`) with the command reference, limitations and safety rules for `gaad`.
+- `agents/google-analytics-admin.md` — a GA4 administration subagent that uses the skill. Its frontmatter follows Claude Code's subagent format; other agents may need to convert it.
+
+Each agent (Claude Code, Codex, pi, Hermes, …) loads skills and subagents from its own location, so installation is agent-agnostic: paste this prompt into the agent you want to equip. Run it again after upgrading `gaad`.
+
+```text
+Install or update the gaad-cli agent skill (and, if you support subagents, the
+google-analytics-admin agent) for yourself, the agent reading this.
+
+1. Find out where YOU load skills from and, if you support them, where you load subagents /
+   custom agents from. Use your own documentation, configuration or conventions. Every agent
+   uses different locations, so do not reuse a path from another agent and do not guess.
+   Prefer your user-level (global) locations unless I ask for project-level ones. If you
+   cannot determine them, ask me.
+2. Get the installed gaad version: run `gaad --version` (it prints `gaad X.Y.Z`). If gaad is
+   not installed, stop and tell me.
+3. Get the files that match that version:
+   - If gaad runs from a local checkout of github.com/damupi/gaad-cli (editable install), use
+     that checkout.
+   - Otherwise clone the matching release tag into a temporary directory:
+     `git clone --quiet --depth 1 --branch vX.Y.Z https://github.com/damupi/gaad-cli.git <tmp>`
+   The skill is `skills/gaad-cli/` (`SKILL.md`, `compatibility.json`); the agent is
+   `agents/google-analytics-admin.md`.
+4. Compare with what is already installed. If everything is identical, tell me it is up to
+   date and stop.
+5. Show me the destination paths and a summary of what will be added, changed or removed, and
+   wait for my approval.
+6. Install:
+   - Copy the whole `gaad-cli` skill directory to `<your skills location>/gaad-cli/`, replacing
+     the previous files and removing files that no longer exist in the source.
+   - If you support subagents, copy `google-analytics-admin.md` to your agents location. If
+     your agent format needs different frontmatter, convert only the frontmatter (name,
+     description, tools, preloaded skills) and keep the body unchanged; tell me what you
+     converted. If you do not support subagents, skip it.
+   - Do not edit the content otherwise. If a location or an existing installed directory is a
+     symbolic link, keep the link and update the files in its resolved target.
+7. Delete the temporary clone, if any. Tell me whether you need a restart or reload to pick up
+   the changes.
+```
+
+`compatibility.json` records the CLI version the skill was reviewed for (`cli_version`); release-please updates it with every release. The skill tells the agent to suggest this prompt when that version differs from `gaad --version`.
+
 ## Development
 
 Dependencies are locked in `uv.lock`. `uv sync` and `uv run` use it; CI runs `uv run --locked pytest`.
@@ -216,6 +266,8 @@ This project uses [Release Please](https://github.com/googleapis/release-please)
 - `feat:` → minor version bump
 - `fix:` → patch version bump
 - `feat!:` / `BREAKING CHANGE:` → major version bump
+
+Merge pull requests with **Squash and merge** (the repository only allows squash merges). release-please also reads merge commits, which would duplicate CHANGELOG entries.
 
 ## License
 

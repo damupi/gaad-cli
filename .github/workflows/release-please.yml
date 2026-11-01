@@ -11,4 +11,5 @@ jobs:
     steps:
       - uses: googleapis/release-please-action@v4
         with:
-          release-type: python
+          # Settings live in release-please-config.json and .release-please-manifest.json
+          token: ${{ secrets.GITHUB_TOKEN }}
